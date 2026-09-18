@@ -1,0 +1,10 @@
+{
+  "note": "People who still hold a workspace seat but no longer host players. Their chats stay on the dashboard as unhosted, because those players exist and nobody is assigned to them, and they raise no alerts because there is no host to action one. Keyed on the workspace userId so it survives an account being reconnected or renamed.",
+  "members": [
+    {
+      "userId": "059f74cb-1f35-422d-ad0c-d7f1cca29c5d",
+      "name": "Byron Petzer",
+      "reason": "CEO, no longer hosting"
+    }
+  ]
+}

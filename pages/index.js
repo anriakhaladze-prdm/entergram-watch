@@ -1,278 +1,187 @@
 import { useEffect, useMemo, useState } from 'react';
-import Head from 'next/head';
-import { useSession, signIn, signOut } from 'next-auth/react';
+import Shell from '../components/Shell';
 import Icon from '../components/Icon';
+import { Stats, BarList, Histogram, Trend } from '../components/Charts';
+import { useSnapshot, STATES, ACTIONABLE } from '../components/useSnapshot';
 
-// The rail doubles as the filter here: each section is a state, and the count
-// is what makes three identical grey tiles legible at a glance.
-const STATES = [
-  { key: 'at_risk',          label: 'Unhappy',  glyph: 'bad',    badge: 'red',    blurb: 'sentiment negative or churn signalled' },
-  { key: 'waiting_on_us',    label: 'Waiting',  glyph: 'warn',   badge: 'orange', blurb: 'player wrote, nobody replied' },
-  { key: 'quiet',            label: 'Quiet',    glyph: 'info',   badge: 'yellow', blurb: 'no contact either way' },
-  { key: 'outreach_ignored', label: 'Ignored',  glyph: 'mail',   badge: 'peach',  blurb: 'host posting, player silent' },
-  { key: 'player_left',      label: 'Left',     glyph: 'logout', badge: 'purple', blurb: 'no player left in the group' },
-  { key: 'unhosted',         label: 'Unhosted', glyph: 'user',   badge: 'blue',   blurb: 'host no longer hosting' },
-  { key: 'dormant',          label: 'Dormant',  glyph: 'lock',   badge: 'gray',   blurb: 'silent 90 days or more' },
-  { key: 'ok',               label: 'Healthy',  glyph: 'ok',     badge: 'green',  blurb: 'in contact' },
+// Benchmarks are from published VIP management practice, not invented here, so
+// a number on this page can be argued with rather than just displayed:
+//   first response inside 5 minutes
+//   30 to 50 active accounts per manager
+//   outreach ladder at day 1, day 8 and day 15, stop after three unanswered
+//   27% of churned players return if engaged on day one of silence, 2% after
+//   three months, which is why the day-one bucket is called out on its own
+const LOAD_MAX = 50;
+const FIRST_REPLY_TARGET = 5;
+
+const SILENCE_BUCKETS = [
+  { key: 'd0', label: 'Today', lo: 0, hi: 1 },
+  { key: 'd1', label: '1-7d', lo: 1, hi: 8 },
+  { key: 'd8', label: '8-14d', lo: 8, hi: 15 },
+  { key: 'd15', label: '15-30d', lo: 15, hi: 31 },
+  { key: 'd31', label: '31-90d', lo: 31, hi: 91 },
+  { key: 'd90', label: '90d+', lo: 91, hi: Infinity },
 ];
-const BY_KEY = Object.fromEntries(STATES.map((s) => [s.key, s]));
-const ORDER = STATES.map((s) => s.key);
-const DEFAULT_ON = ['at_risk', 'waiting_on_us', 'quiet', 'outreach_ignored', 'player_left'];
-// Eight items ran off the bottom of the rail at 950px. Dormant and healthy are
-// not work queues, so they become toolbar toggles and the rail keeps the six
-// states somebody has to do something about.
-const RAIL = STATES.filter((s) => !['dormant', 'ok'].includes(s.key));
-const EXTRA = STATES.filter((s) => ['dormant', 'ok'].includes(s.key));
-
-const COLS = [
-  { key: 'player',     label: 'Player',      w: '170px', sort: 'player' },
-  { key: 'host',       label: 'Host',        w: '150px', sort: 'host' },
-  { key: 'state',      label: 'State',       w: '150px', sort: 'severity' },
-  { key: 'quiet',      label: 'Silent',      w: '104px', sort: 'quiet' },
-  { key: 'player_last',label: 'Player said', w: '130px', sort: 'playerQuiet' },
-  { key: 'we_last',    label: 'We said',     w: '118px', sort: 'staffQuiet' },
-  { key: 'members',    label: 'Members',     w: '104px', sort: 'members' },
-  { key: 'mood',       label: 'Mood',        w: '112px', sort: 'mood' },
-  { key: 'detail',     label: 'Detail',      w: 'minmax(220px, 1fr)', sort: null },
+const REPLY_BUCKETS = [
+  { key: 'r5', label: 'under 5m', lo: 0, hi: 5 },
+  { key: 'r30', label: '5-30m', lo: 5, hi: 30 },
+  { key: 'r120', label: '30m-2h', lo: 30, hi: 120 },
+  { key: 'r720', label: '2-12h', lo: 120, hi: 720 },
+  { key: 'r1440', label: '12-24h', lo: 720, hi: 1440 },
+  { key: 'rmax', label: 'over 24h', lo: 1440, hi: Infinity },
 ];
+const median = (xs) => (xs.length ? [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] : null);
+const mins = (m) => (m == null ? '–' : m < 60 ? `${Math.round(m)}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`);
 
-const age = (n) => (n == null ? '–' : n < 2 ? `${Math.max(1, Math.round(n * 24))}h` : `${Math.round(n)}d`);
+export default function Overview() {
+  const { session, snap, rows, error, scan, runScan } = useSnapshot();
+  const [history, setHistory] = useState(null);
+  useEffect(() => { fetch('/api/history').then((r) => (r.ok ? r.json() : null)).then(setHistory).catch(() => {}); }, [snap]);
 
-export default function Dashboard() {
-  const { data: session, status } = useSession();
-  const [snap, setSnap] = useState(null);
-  const [error, setError] = useState(null);
-  const [active, setActive] = useState(new Set(DEFAULT_ON));
-  const [host, setHost] = useState('all');
-  const [q, setQ] = useState('');
-  const [sort, setSort] = useState({ col: 'severity', dir: 'asc' });
-  const [scan, setScan] = useState({ busy: false, note: null });
-
-  const load = () => fetch('/api/snapshot')
-    .then(async (r) => (r.ok ? r.json() : Promise.reject(new Error((await r.json()).error))))
-    .then((s) => { setSnap(s); setError(null); })
-    .catch((e) => setError(e.message));
-
-  useEffect(() => { if (status === 'authenticated') load(); }, [status]);
-
-  // The first run seeds the baseline and posts one summary; after that only
-  // new threshold crossings alert, so this is safe to press.
-  const runScan = async () => {
-    setScan({ busy: true, note: 'Scanning. Sweeping 3548 chats and reading history, this takes a minute or two.' });
-    try {
-      const r = await fetch('/api/scan', { method: 'POST' });
-      const body = await r.json();
-      if (!r.ok || !body.ok) throw new Error(body.error || `HTTP ${r.status}`);
-      setScan({
-        busy: false,
-        note: `Scanned ${body.total} player chats in ${Math.round(body.ms / 1000)}s. History readable for ${body.read}, unavailable for ${body.denied}. ${body.seeded ? `${body.posted} alert${body.posted === 1 ? '' : 's'} posted.` : 'Baseline seeded, backlog not posted.'}`,
-      });
-      await load();
-    } catch (e) {
-      setScan({ busy: false, note: `Scan failed: ${e.message}` });
+  const m = useMemo(() => {
+    const hosted = rows.filter((r) => r.hostActive);
+    const counts = rows.reduce((a, r) => ({ ...a, [r.state]: (a[r.state] || 0) + 1 }), {});
+    const replies = hosted.map((r) => r.replyMedianMins).filter((v) => v != null);
+    const byHost = new Map();
+    for (const r of hosted) {
+      const k = r.host || 'unassigned';
+      if (!byHost.has(k)) byHost.set(k, []);
+      byHost.get(k).push(r);
     }
-  };
+    const silence = SILENCE_BUCKETS.map((b) => ({
+      ...b, value: hosted.filter((r) => (r.quietDays ?? -1) >= b.lo && (r.quietDays ?? -1) < b.hi).length,
+    }));
+    const reply = REPLY_BUCKETS.map((b) => ({
+      ...b, value: hosted.filter((r) => r.replyMedianMins != null && r.replyMedianMins >= b.lo && r.replyMedianMins < b.hi).length,
+    }));
+    const moods = ['at_risk', 'negative', 'neutral', 'positive'].map((k) => ({
+      key: k, label: k === 'at_risk' ? 'At risk' : k[0].toUpperCase() + k.slice(1),
+      value: hosted.filter((r) => (r.sentiment?.label || 'neutral') === k).length,
+      tone: { at_risk: 'badge-red', negative: 'badge-orange', neutral: 'badge-gray', positive: 'badge-green' }[k],
+    }));
+    return {
+      counts, hosted, byHost, silence, reply, moods,
+      actionable: hosted.filter((r) => ACTIONABLE.includes(r.state)).length,
+      medianReply: median(replies),
+      replyCovered: replies.length,
+      winBack: silence.find((b) => b.key === 'd1')?.value ?? 0,
+      today: silence.find((b) => b.key === 'd0')?.value ?? 0,
+      cold: silence.find((b) => b.key === 'd90')?.value ?? 0,
+      overloaded: [...byHost.entries()].filter(([, v]) => v.length > LOAD_MAX).length,
+      pending: rows.filter((r) => r.historyState === 'pending').length,
+      unavailable: rows.filter((r) => r.historyState === 'unavailable').length,
+    };
+  }, [rows]);
 
-  const rows = snap?.rows || [];
-  const hosts = useMemo(() => [...new Set(rows.map((r) => r.host).filter(Boolean))].sort(), [rows]);
-  const counts = useMemo(() => rows.reduce((a, r) => ({ ...a, [r.state]: (a[r.state] || 0) + 1 }), {}), [rows]);
-
-  const shown = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    const out = rows.filter((r) =>
-      (active.size === 0 || active.has(r.state)) &&
-      (host === 'all' || r.host === host) &&
-      (!term || (r.player || '').toLowerCase().includes(term) || (r.title || '').toLowerCase().includes(term)));
-    const val = (r) => ({
-      severity: ORDER.indexOf(r.state), player: (r.player || '').toLowerCase(), host: r.host || '',
-      quiet: r.quietDays ?? -1, playerQuiet: r.playerQuietDays ?? -1, staffQuiet: r.staffQuietDays ?? -1,
-      members: r.membersCount ?? -1,
-      mood: ['at_risk', 'negative', 'neutral', 'positive'].indexOf(r.sentiment?.label ?? 'neutral'),
-    }[sort.col]);
-    return [...out].sort((a, b) => {
-      const x = val(a), y = val(b);
-      const cmp = typeof x === 'string' ? x.localeCompare(y) : y - x;
-      const dir = sort.dir === 'asc' ? 1 : -1;
-      return (sort.col === 'severity' ? -cmp : cmp) * dir || (b.quietDays ?? 0) - (a.quietDays ?? 0);
-    });
-  }, [rows, active, host, q, sort]);
-
-  const toggle = (key) => setActive((prev) => {
-    const next = new Set(prev);
-    if (next.has(key)) next.delete(key); else next.add(key);
-    return next;
-  });
-  const sortBy = (col) => col && setSort((s) => ({ col, dir: s.col === col && s.dir === 'asc' ? 'desc' : 'asc' }));
-
-  if (status === 'loading') return null;
-  if (status !== 'authenticated') {
-    if (typeof window !== 'undefined') signIn('google', { callbackUrl: '/' });
-    return null;
-  }
-
-  const cell = (content, cls = '') => (
-    <div className="th-grid-cell"><div><span className={`th-grid-cell-inner typ-label-medium ${cls}`}>{content}</span></div></div>
+  const days = (history?.daily || []).slice(-30);
+  const toolbar = (
+    <>
+      <span className="ow-section-title typ-label-small">Overview</span>
+      <div className="th-toolbar-spacer" />
+      <span className="ow-toolbar-note typ-label-small">
+        {scan.note || (snap ? `Scanned ${new Date(snap.generatedAt).toLocaleString()}` : '')}
+      </span>
+      <button type="button" className="th-pill th-pill-primary focusable" onClick={runScan} disabled={scan.busy} aria-disabled={scan.busy}>
+        {scan.busy ? <span className="ow-spin" /> : <Icon name="retry" size={12} />}
+        <span className="th-pill-label typ-label-medium">{scan.busy ? 'Scanning' : 'Scan now'}</span>
+      </button>
+    </>
   );
 
+  if (error) {
+    return (
+      <Shell title="Overview" email={session?.user?.email} toolbar={toolbar}>
+        <div className="th-empty">
+          <div className="th-empty-title typ-heading-small">No data yet</div>
+          <div className="th-empty-sub typ-paragraph-small">
+            {/^no snapshot/i.test(error) ? 'Nothing has scanned yet. Press Scan now, or wait for the cron.' : error}
+          </div>
+        </div>
+      </Shell>
+    );
+  }
+  if (!snap) return <Shell title="Overview" email={session?.user?.email} toolbar={toolbar}>{null}</Shell>;
+
   return (
-    <>
-      <Head><title>Player outreach · Sonar</title></Head>
+    <Shell title="Overview" email={session?.user?.email} toolbar={toolbar}>
+      <div className="ow-page">
+        <Stats items={[
+          { key: 'act', label: 'Needs action', value: m.actionable, tone: 'badge-orange', sub: `of ${m.hosted.length} hosted players` },
+          { key: 'wait', label: 'Waiting on a reply', value: m.counts.waiting_on_us || 0, tone: 'badge-red', sub: 'player wrote, nobody answered' },
+          { key: 'rep', label: 'Median first reply', value: mins(m.medianReply), sub: `target under ${FIRST_REPLY_TARGET}m · ${m.replyCovered} chats measured` },
+          { key: 'win', label: 'Win-back window', value: m.winBack, tone: 'badge-green', sub: 'silent 1 to 7 days, best odds of return' },
+          { key: 'risk', label: 'Unhappy', value: m.counts.at_risk || 0, tone: 'badge-red', sub: 'sentiment negative or churn signalled' },
+          { key: 'cold', label: 'Past 90 days', value: m.cold, tone: 'badge-gray', sub: 'recovery rate collapses out here' },
+        ]} />
 
-      <div className="th-root" data-nav="closed" data-mask="off">
-        <header className="th-header">
-          <div className="th-header-logo">
-            <span className="th-logo-wordmark" role="img" aria-label="Sonar" />
-          </div>
+        <div className="ow-section-head">
+          <span className="ow-section-title typ-label-small">The book</span>
+          <span className="ow-section-sub typ-label-small">
+            {m.pending ? `${m.pending} chats still queued for a history read` : 'history read for every chat'}
+            {m.unavailable ? `, ${m.unavailable} not readable` : ''}
+          </span>
+        </div>
+        <div className="ow-charts">
+          <BarList
+            title="Where the book sits"
+            sub={`${m.hosted.length} hosted`}
+            rows={STATES.map((s) => ({ key: s.key, label: s.label, value: m.counts[s.key] || 0, tone: s.tone }))}
+          />
+          <BarList
+            title="Mood"
+            sub={m.moods.every((x) => !x.value) ? 'no sentiment scored yet' : `${m.moods.reduce((a, b) => a + b.value, 0)} scored`}
+            rows={m.moods}
+          />
+        </div>
 
-          <div className="th-breadcrumb">
-            <nav className="th-breadcrumb-inner" aria-label="Breadcrumb">
-              <div className="th-crumb-train">
-                <span className="th-crumb typ-label-large">Player Outreach</span>
-                <span className="th-crumb typ-label-large">
-                  {snap ? `${rows.length} chats` : 'Loading'}
-                </span>
-              </div>
-            </nav>
-          </div>
+        <div className="ow-section-head">
+          <span className="ow-section-title typ-label-small">Silence, against the outreach ladder</span>
+          <span className="ow-section-sub typ-label-small">check in on day 1, follow up on day 8, last soft touch on day 15</span>
+        </div>
+        <div className="ow-charts ow-charts-wide">
+          <Histogram title="Days since anyone spoke" sub={`${m.today} active today`} buckets={m.silence} />
+        </div>
 
-          <div className="th-header-actions">
-            <button type="button" className="th-action focusable" data-tip={session?.user?.email || ''} aria-label="Account">
-              <Icon name="user" size={20} />
-            </button>
-            <button type="button" className="th-action focusable" onClick={() => signOut({ callbackUrl: '/auth/signin' })} data-tip="Sign out" aria-label="Sign out">
-              <Icon name="logout" size={20} />
-            </button>
-          </div>
-        </header>
+        <div className="ow-section-head">
+          <span className="ow-section-title typ-label-small">How fast we answer</span>
+          <span className="ow-section-sub typ-label-small">first reply to a player&rsquo;s message, median per chat</span>
+        </div>
+        <div className="ow-charts ow-charts-wide">
+          <Histogram title="Time to first reply" sub={`median ${mins(m.medianReply)}`} buckets={m.reply} />
+        </div>
 
-        <nav className="th-rail" aria-label="Sections">
-          <ul className="th-nav">
-            {RAIL.map((s) => (
-              <li className="th-nav-item" key={s.key}>
-                <a
-                  className="th-nav-link focusable int-hover-scale-plus"
-                  href="#"
-                  onClick={(e) => { e.preventDefault(); toggle(s.key); }}
-                  aria-current={active.has(s.key) ? 'page' : undefined}
-                  data-tip={s.blurb}
-                >
-                  <span className="th-nav-tile"><Icon name={s.glyph} size={20} /></span>
-                  <span className="th-nav-label typ-label-xxsmall">{s.label}</span>
-                  <span className="ow-rail-count typ-label-small">{counts[s.key] ?? 0}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <div className="ow-section-head">
+          <span className="ow-section-title typ-label-small">Load</span>
+          <span className="ow-section-sub typ-label-small">
+            {m.overloaded ? `${m.overloaded} host${m.overloaded === 1 ? '' : 's'} above the 30 to 50 account guideline` : 'within the 30 to 50 account guideline'}
+          </span>
+        </div>
+        <div className="ow-charts ow-charts-wide">
+          <BarList
+            title="Players per host"
+            sub={`guideline ${LOAD_MAX} maximum`}
+            rows={[...m.byHost.entries()].sort((a, b) => b[1].length - a[1].length).map(([h, v]) => ({
+              key: h, label: h, value: v.length, tone: v.length > LOAD_MAX ? 'badge-red' : 'badge-green',
+            }))}
+          />
+        </div>
 
-        <main className="th-main">
-          <div className="th-card">
-            <div className="th-toolbar">
-              <label className="ow-search">
-                <Icon name="search" size={12} />
-                <input placeholder="Search player" value={q} onChange={(e) => setQ(e.target.value)} />
-              </label>
-
-              <span className="th-chip typ-label-small" data-on={host === 'all'} onClick={() => setHost('all')}
-                aria-pressed={host === 'all'} role="button" tabIndex={0}>All hosts</span>
-              {hosts.map((h) => (
-                <span key={h} className="th-chip typ-label-small" data-on={host === h} onClick={() => setHost(h)}
-                  aria-pressed={host === h} role="button" tabIndex={0}>{h}</span>
-              ))}
-
-              {EXTRA.map((s) => (
-                <span key={s.key} className="th-chip typ-label-small" data-on={active.has(s.key)}
-                  onClick={() => toggle(s.key)} aria-pressed={active.has(s.key)} role="button" tabIndex={0}>
-                  {s.label} {counts[s.key] ?? 0}
-                </span>
-              ))}
-
-              <div className="th-toolbar-spacer" />
-
-              <span className="ow-toolbar-note typ-label-small">
-                {scan.note || (snap ? `Scanned ${new Date(snap.generatedAt).toLocaleString()}` : '')}
-              </span>
-
-              <button
-                type="button"
-                className="th-pill th-pill-primary focusable"
-                onClick={runScan}
-                disabled={scan.busy}
-                aria-disabled={scan.busy}
-              >
-                {scan.busy ? <span className="ow-spin" /> : <Icon name="retry" size={12} />}
-                <span className="th-pill-label typ-label-medium">{scan.busy ? 'Scanning' : 'Scan now'}</span>
-              </button>
-            </div>
-
-            <div className="th-card-scroll">
-              {error ? (
-                <div className="th-empty">
-                  <div className="th-empty-title typ-heading-small">No data yet</div>
-                  <div className="th-empty-sub typ-paragraph-small">
-                    {/^no snapshot/i.test(error)
-                      ? 'Nothing has scanned yet. Press Scan now, or wait for the cron, which runs every 10 minutes.'
-                      : error}
-                  </div>
-                </div>
-              ) : !snap ? null : (
-                <div className="th-grid-scroll">
-                  <div className="th-grid" style={{ gridTemplateColumns: COLS.map((c) => c.w).join(' ') }}>
-                    <div className="th-grid-headgroup">
-                      <div className="th-grid-headrow">
-                        {COLS.map((c) => (
-                          <div
-                            key={c.key}
-                            className={`th-grid-headcell${c.sort ? ' ow-sortable' : ''}`}
-                            onClick={() => sortBy(c.sort)}
-                          >
-                            <div>
-                              <span className="th-grid-headlabel">{c.label}</span>
-                              {c.sort ? (
-                                <span className={`th-grid-sort${sort.col === c.sort ? ' ow-sort-on' : ''}`}>
-                                  <Icon name="sort" size={10} />
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="th-grid-body">
-                      {shown.map((r) => {
-                        const s = BY_KEY[r.state] || { label: r.state, badge: 'gray' };
-                        const mood = r.sentiment?.label;
-                        return (
-                          <div className="th-grid-row" key={r.chatId}>
-                            {cell(r.player || r.title)}
-                            {cell(r.host || '–', 'ow-sub')}
-                            {cell(<span className={`th-badge th-badge-${s.badge} typ-label-small`}>{s.label}</span>)}
-                            {cell(age(r.quietDays), 'ow-nums')}
-                            {cell(
-                              r.historyRead ? age(r.playerQuietDays) : <span className="ow-muted">–</span>,
-                              `ow-nums${r.playerQuietDays > 30 ? ' ow-stale' : ''}`,
-                            )}
-                            {cell(r.historyRead ? age(r.staffQuietDays) : <span className="ow-muted">–</span>, 'ow-nums')}
-                            {cell(r.membersCount ?? '–', 'ow-nums ow-sub')}
-                            {cell(
-                              mood && mood !== 'neutral'
-                                ? <span className={`ow-mood ow-mood-${mood}`}>{mood === 'at_risk' ? 'at risk' : mood}</span>
-                                : <span className="ow-muted">–</span>,
-                            )}
-                            {cell(r.signals?.[0] || (r.historyRead ? 'in contact' : 'history not readable'), 'ow-sub')}
-                          </div>
-                        );
-                      })}
-                      {!shown.length ? <div className="th-grid-empty typ-label-medium">Nothing matches these filters.</div> : null}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </main>
+        <div className="ow-section-head">
+          <span className="ow-section-title typ-label-small">Trend</span>
+          <span className="ow-section-sub typ-label-small">one point per day</span>
+        </div>
+        <div className="ow-charts ow-charts-wide">
+          <Trend
+            title="Players needing action"
+            sub={days.length ? `${days.length} days` : null}
+            days={days.map((d) => d.day?.slice(5) || '')}
+            series={[
+              { key: 'waiting', label: 'waiting', tone: 'badge-red', values: days.map((d) => d.counts?.waiting_on_us || 0) },
+              { key: 'quiet', label: 'quiet', tone: 'badge-yellow', values: days.map((d) => d.counts?.quiet || 0) },
+            ]}
+          />
+        </div>
       </div>
-    </>
+    </Shell>
   );
 }

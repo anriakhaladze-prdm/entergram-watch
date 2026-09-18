@@ -85,6 +85,22 @@ t('naming a competitor as a destination is', () => {
   eq(ruleScan(['im moving to stake']).label, 'negative');
 });
 
+t('politeness wrapped around a complaint is not an acknowledgement', () => {
+  const r = analyzeChat(chat({ lastMessageDate: ago(3), lastMessage: { date: ago(3), sender: { id: PLAYER } } }), {
+    messages: [{ ...msg(3, PLAYER), text: 'thanks but where is my money' }, { ...msg(4, STAFF), text: 'looking into it' }],
+    now: NOW, expectedMembers: 8,
+  });
+  eq(r.lastPlayerAck, false);
+  eq(r.state, 'waiting_on_us');
+});
+t('a question is never a sign-off however polite', () => {
+  const r = analyzeChat(chat({ lastMessageDate: ago(3), lastMessage: { date: ago(3), sender: { id: PLAYER } } }), {
+    messages: [{ ...msg(3, PLAYER), text: 'thanks! any chance of a bonus this week?' }],
+    now: NOW, expectedMembers: 8,
+  });
+  eq(r.state, 'waiting_on_us');
+});
+
 // --- leaving -------------------------------------------------------------
 t('a leave action plus a low member count is player_left', () => {
   const r = analyzeChat(chat({ membersCount: 7 }), {
@@ -111,6 +127,22 @@ t('a service message is not outreach', () => {
     now: NOW, expectedMembers: 8,
   });
   eq(Math.round(r.staffQuietDays), 45, 'the add should not count as us speaking:');
+});
+
+t('reply latency is measured per exchange, not per message', () => {
+  // Player asks at T-10d. Host answers 30 minutes later, then sends two more
+  // messages. That is one response of 30 minutes, not three of nothing.
+  const r = analyzeChat(chat(), {
+    messages: [
+      { ...msg(9.9, STAFF), text: 'and one more thing' },
+      { ...msg(9.95, STAFF), text: 'also this' },
+      { ...msg(9.979, STAFF), text: 'on it' },
+      { ...msg(10, PLAYER), text: 'can you check my account' },
+    ],
+    now: NOW, expectedMembers: 8,
+  });
+  eq(r.replySamples, 1);
+  if (Math.abs(r.replyMedianMins - 30) > 2) throw new Error(`expected about 30 minutes, got ${r.replyMedianMins}`);
 });
 
 // --- host state ----------------------------------------------------------
@@ -140,9 +172,33 @@ t('the alert names the player and both timestamps', () => {
   if (!/player last spoke 3d ago/.test(text)) throw new Error(`player timestamp missing:\n${text}`);
   if (!/we last spoke 6d ago/.test(text)) throw new Error(`staff timestamp missing:\n${text}`);
 });
-t('a chat with no readable history says so', () => {
+t('a chat whose history genuinely cannot be read says so', () => {
+  const r = analyzeChat(chat({ lastMessageDate: ago(10), lastMessage: { date: ago(10), sender: { id: PLAYER } } }),
+    { now: NOW, historyState: 'unavailable' });
+  eq(r.historyState, 'unavailable');
+  if (!/history is not readable/i.test(formatAlert(r))) throw new Error('should flag the weaker basis');
+});
+t('a chat that has not been read yet is pending, not unavailable', () => {
+  // The distinction the jp823 false positive turned on: a queue position is
+  // not a permission fact, and an alert must not be raised from it.
   const r = analyzeChat(chat({ lastMessageDate: ago(10), lastMessage: { date: ago(10), sender: { id: PLAYER } } }), { now: NOW });
-  if (!/History not readable/.test(formatAlert(r))) throw new Error('should flag the weaker basis');
+  eq(r.historyState, 'pending');
+  eq(r.historyRead, false);
+  if (/not readable/i.test(formatAlert(r))) throw new Error('must not claim the history cannot be read');
+});
+t('reading the history clears the pending state', () => {
+  const r = analyzeChat(chat(), { messages: [msg(2, PLAYER), msg(5, STAFF)], now: NOW, expectedMembers: 8 });
+  eq(r.historyState, 'read');
+});
+t('the acknowledgement that caused the false positive is caught once history is read', () => {
+  // jp823: the player's last message was "I'd appreciate it. Thank you", right
+  // after the host answered. Tier 1 has no text, so it read as unanswered.
+  const withText = analyzeChat(chat({ lastMessageDate: ago(3), lastMessage: { date: ago(3), sender: { id: PLAYER } } }), {
+    messages: [{ ...msg(3, PLAYER), text: "I'd appreciate it. Thank you" }, { ...msg(3.01, STAFF), text: 'will you give us a bit of time to review for you?' }],
+    now: NOW, expectedMembers: 8,
+  });
+  if (withText.state === 'waiting_on_us') throw new Error('an acknowledgement is not an unanswered question');
+  eq(withText.lastPlayerAck, true);
 });
 
 // --- sentiment -----------------------------------------------------------
