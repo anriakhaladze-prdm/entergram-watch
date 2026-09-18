@@ -46,14 +46,32 @@ export default function Dashboard() {
   const [host, setHost] = useState('all');
   const [q, setQ] = useState('');
   const [sort, setSort] = useState({ col: 'severity', dir: 'asc' });
+  const [scan, setScan] = useState({ busy: false, note: null });
 
-  useEffect(() => {
-    if (status !== 'authenticated') return;
-    fetch('/api/snapshot')
-      .then(async (r) => (r.ok ? r.json() : Promise.reject(new Error((await r.json()).error))))
-      .then(setSnap)
-      .catch((e) => setError(e.message));
-  }, [status]);
+  const load = () => fetch('/api/snapshot')
+    .then(async (r) => (r.ok ? r.json() : Promise.reject(new Error((await r.json()).error))))
+    .then((s) => { setSnap(s); setError(null); })
+    .catch((e) => setError(e.message));
+
+  useEffect(() => { if (status === 'authenticated') load(); }, [status]);
+
+  // The first run seeds the baseline and posts one summary; after that only
+  // new threshold crossings alert, so this is safe to press.
+  const runScan = async () => {
+    setScan({ busy: true, note: 'Scanning. Sweeping 3548 chats and reading history, this takes a minute or two.' });
+    try {
+      const r = await fetch('/api/scan', { method: 'POST' });
+      const body = await r.json();
+      if (!r.ok || !body.ok) throw new Error(body.error || `HTTP ${r.status}`);
+      setScan({
+        busy: false,
+        note: `Scanned ${body.total} player chats in ${Math.round(body.ms / 1000)}s. History readable for ${body.read}, unavailable for ${body.denied}. ${body.seeded ? `${body.posted} alert${body.posted === 1 ? '' : 's'} posted.` : 'Baseline seeded, backlog not posted.'}`,
+      });
+      await load();
+    } catch (e) {
+      setScan({ busy: false, note: `Scan failed: ${e.message}` });
+    }
+  };
 
   const rows = snap?.rows || [];
   const hosts = useMemo(() => [...new Set(rows.map((r) => r.host).filter(Boolean))].sort(), [rows]);
@@ -170,16 +188,32 @@ export default function Dashboard() {
               ))}
 
               <div className="th-toolbar-spacer" />
+
               <span className="ow-toolbar-note typ-label-small">
-                {snap ? `Scanned ${new Date(snap.generatedAt).toLocaleString()}` : ''}
+                {scan.note || (snap ? `Scanned ${new Date(snap.generatedAt).toLocaleString()}` : '')}
               </span>
+
+              <button
+                type="button"
+                className="th-pill th-pill-primary focusable"
+                onClick={runScan}
+                disabled={scan.busy}
+                aria-disabled={scan.busy}
+              >
+                {scan.busy ? <span className="ow-spin" /> : <Icon name="retry" size={12} />}
+                <span className="th-pill-label typ-label-medium">{scan.busy ? 'Scanning' : 'Scan now'}</span>
+              </button>
             </div>
 
             <div className="th-card-scroll">
               {error ? (
                 <div className="th-empty">
                   <div className="th-empty-title typ-heading-small">No data yet</div>
-                  <div className="th-empty-sub typ-paragraph-small">{error}</div>
+                  <div className="th-empty-sub typ-paragraph-small">
+                    {/^no snapshot/i.test(error)
+                      ? 'Nothing has scanned yet. Press Scan now, or wait for the cron, which runs every 10 minutes.'
+                      : error}
+                  </div>
                 </div>
               ) : !snap ? null : (
                 <div className="th-grid-scroll">
