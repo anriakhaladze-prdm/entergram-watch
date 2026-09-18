@@ -1,0 +1,18 @@
+{
+  "note": "Telegram user ids of staff, the only reliable way to tell a host's message from a player's. `isOut` cannot do it: it is relative to the account making the request, so reading as @Thrill_VIP_Ops, a message Colton sent from his own account comes back isOut=false exactly like a player's.",
+  "method": "Derived from 50 readable player chats sampled across the silence range. A player appears in one chat, a host in dozens, so distinct-chat count separates them cleanly: the top six sit at 19-42 chats and the next sender sits at 2.",
+  "derivedAt": "2026-09-18",
+  "staff": [
+    { "telegramUserId": "7973277038", "name": "Kyle | Thrill VIP",        "sampledChats": 42 },
+    { "telegramUserId": "8268223773", "name": "Colton | Thrill VIP",      "sampledChats": 36 },
+    { "telegramUserId": "8309810799", "name": "Carter | Thrill VIP",      "sampledChats": 33 },
+    { "telegramUserId": "8120203444", "name": "High Priest - Thrill.com", "sampledChats": 27 },
+    { "telegramUserId": "5013178890", "name": "Mikey | Thrill Affiliate", "sampledChats": 23 },
+    { "telegramUserId": "5278034304", "name": "Andy | Thrill",            "sampledChats": 19 },
+    { "telegramUserId": "8797108490", "name": "VIP Ops",                  "sampledChats": 2, "note": "the reader account, staff by definition regardless of sample count" },
+    { "telegramUserId": "5715310548", "name": "Henry (FreZzyCopter)",     "sampledChats": 0, "note": "Anri's second connected account" }
+  ],
+  "bots": [
+    { "telegramUserId": "777000", "name": "Telegram service" }
+  ]
+}

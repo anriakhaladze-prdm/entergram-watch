@@ -1,0 +1,23 @@
+{
+  "name": "entergram-watch",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Entergram player-outreach watcher. Cron on Vercel, Slack alerts when a hosted player goes quiet or is left unanswered, plus a coverage dashboard.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "probe": "node scripts/probe.js",
+    "test": "node tests/run.js"
+  },
+  "dependencies": {
+    "next": "^14.2.25",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "next-auth": "^4.24.11"
+  },
+  "engines": {
+    "node": "22.x"
+  }
+}

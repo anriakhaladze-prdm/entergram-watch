@@ -1,0 +1,14 @@
+node_modules
+.next
+.vercel
+.env*.local
+
+# Local recon output. roster-sample.json holds real chat titles and message
+# metadata for live players, so it never goes near a repo.
+roster-sample.json
+staff-roster.json
+*-output.txt
+fixture.json
+
+# Local GitHub token, read into an env var for a push and never committed
+.gh-token
