@@ -1,0 +1,3223 @@
+/* ==========================================================================
+   Sonar component layer
+
+   Sections 7, 8 and 10 are carried over VERBATIM from the Sonar KYT app
+   (sonar-kyt-main/styles/globals.css). The two products are now literally the
+   same component vocabulary: .th-meta fact strips, .th-verdict banners,
+   .th-blockhead sections, .th-rows key/value grids, .th-note, .th-status,
+   .th-empty, .th-grid. Keep them in sync — if you change a recipe here,
+   change it there.
+
+   Section 11 is Sonar-only: the pieces KYT has no need for (toast, drill
+   modal, side drawer, command palette, drill tiles) plus the glue for the
+   legacy tabs. Written on the same recipes.
+
+   Tokens, the typ-* scale and the bespoke utilities come from thrill.css,
+   which is generated. Do not redefine them here.
+   ========================================================================== */
+
+/* ==========================================================================
+   7. Application shell — three absolutely positioned regions
+   ========================================================================== */
+
+.th-root {
+  position: relative;
+  height: 100vh;
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  background: var(--color-background-primary);
+  color: var(--color-foreground-text);
+}
+
+/* --- Header: 92px transparent band, three absolute clusters --- */
+
+.th-header {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 92px;
+  overflow: clip;
+}
+
+.th-header-logo {
+  position: absolute;
+  top: 50%;
+  left: 37px;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-12);
+  transform: translateY(-50%);
+  color: var(--color-foreground-primary);
+}
+.th-header-logo img { width: 21px; height: 21px; display: block; }
+
+/* Sonar wordmark. The glyphs are drawn on the Thrill letterform skeleton
+   (stem 6.0026, x-height 4.56681, radius 3.806, shear 0.2668 - see
+   public/sonar-wordmark.svg, aspect 74.8176:20). Painted as a mask rather
+   than an <img> so it inherits `currentColor` and therefore flips with the
+   light theme, and so one asset serves every size without duplicating the
+   path data into the markup. */
+.th-logo-wordmark {
+  --wordmark-h: 15px;
+  display: block;
+  height: var(--wordmark-h);
+  width: calc(var(--wordmark-h) * 74.8176 / 20);
+  background-color: currentColor;
+  -webkit-mask: url(/sonar-wordmark.svg) no-repeat center / contain;
+          mask: url(/sonar-wordmark.svg) no-repeat center / contain;
+}
+.th-wordmark {
+  font-weight: 800;
+  letter-spacing: calc(1em * var(--display-letter-spacing));
+  text-transform: uppercase;
+}
+
+.th-breadcrumb {
+  position: absolute;
+  top: 50%;
+  left: 136px;
+  right: 300px;
+  transform: translateY(-50%);
+}
+.th-breadcrumb-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+  color: var(--color-control-primary-foreground-active);
+}
+.th-crumb-train {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+.th-crumb {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  padding: var(--spacing-14) var(--spacing-16);
+  background: var(--color-control-primary);
+  color: var(--color-control-primary-foreground-active);
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border-radius: var(--radius-2);
+  flex-shrink: 0;
+}
+.th-crumb:first-child {
+  border-start-start-radius: var(--radius-12);
+  border-end-start-radius: var(--radius-12);
+}
+.th-crumb:last-child {
+  border-start-end-radius: var(--radius-12);
+  border-end-end-radius: var(--radius-12);
+  color: var(--color-control-primary-foreground);
+  min-width: 0;
+  flex-shrink: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.th-icon-tile-btn {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--color-control-primary-foreground-active);
+}
+.th-icon-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-12);
+  border-radius: var(--radius-12);
+  background: var(--color-control-primary);
+  transition: background-color var(--dur-fill) var(--ease-in-out);
+}
+.th-icon-tile-btn:hover .th-icon-tile { background: var(--color-control-primary-active); }
+
+.th-header-actions {
+  position: absolute;
+  top: 50%;
+  right: 50px;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-20);
+  transform: translateY(-50%);
+}
+.th-action {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: var(--spacing-6);
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--color-foreground-secondary);
+  transition: opacity var(--dur-house) var(--ease-in-out),
+              color var(--dur-house) var(--ease-in-out);
+}
+.th-action:hover { opacity: 0.7; }
+.th-action:active { opacity: 0.5; }
+.th-action[data-on='true'] { color: var(--color-foreground-selected-secondary); }
+
+.th-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-64);
+  background: var(--accent-fill);
+  color: var(--color-foreground-selected-secondary);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+/* --- Sidebar rail: 136px, no background, no border --- */
+
+.th-rail {
+  position: absolute;
+  top: 92px;
+  left: 0;
+  display: flex;
+  width: 136px;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  padding: var(--spacing-8) var(--spacing-32) var(--spacing-32);
+}
+
+.th-rail-env { margin-bottom: 28px; }
+.th-env-btn {
+  display: flex;
+  width: 72px;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-10);
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: default;
+  color: var(--color-foreground-muted-3);
+}
+.th-env-tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-12);
+  border-radius: var(--radius-12);
+  background: var(--color-background-secondary);
+  transition: background-color var(--dur-fill) var(--ease-in-out),
+              color var(--dur-fill) var(--ease-in-out);
+}
+.th-env-dot {
+  position: absolute;
+  top: -6px;
+  left: -4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  border: 4px solid var(--color-background-primary);
+  background: var(--color-green-1);
+}
+.th-env-labels {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-6);
+  text-align: center;
+}
+
+.th-nav {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.th-nav-item { width: 100%; }
+.th-nav-link {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-10);
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--color-foreground-muted-1);
+  transition: color var(--dur-house) var(--ease-in-out);
+}
+.th-nav-link:hover { text-decoration: none; color: var(--color-foreground-primary); }
+.th-nav-tile {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-12);
+  transition: background-color var(--dur-house) var(--ease-in-out),
+              border-radius var(--dur-house) var(--ease-in-out);
+}
+.th-nav-label {
+  width: 100%;
+  text-align: center;
+  font-weight: 700;
+  text-transform: uppercase;
+  transition: color var(--dur-house) var(--ease-in-out);
+}
+/* Selection is triple-encoded: 6% fill, a +2px radius bloom, and colour.
+   The glyph sits ON the selected surface, the label sits on the page — so
+   they take different tokens. Dark: both resolve to green-1. Light: the tile
+   becomes a solid green fill with a white glyph while the label stays green. */
+.th-nav-link[aria-current='page'] .th-nav-tile {
+  background: var(--accent-fill);
+  border-radius: var(--radius-14);
+  color: var(--color-foreground-selected-secondary);
+}
+.th-nav-link[aria-current='page'] .th-nav-label {
+  color: var(--color-surface-selected-primary);
+}
+.th-nav-link[aria-disabled='true'] {
+  opacity: 0.4;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* --- Main + content card --- */
+
+.th-main {
+  position: absolute;
+  top: 92px;
+  right: 0;
+  bottom: 0;
+  left: 136px;
+  display: flex;
+  flex-direction: column;
+  padding-right: var(--spacing-24);
+  padding-bottom: var(--spacing-24);
+}
+
+.th-card {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-32);
+  /* The page slab is back, at its original #202433. It was briefly transparent to
+     stop the layout reading as one standalone modal, but with the regions inside it
+     now carrying their own surfaces there is a clean four-step ramp and no void to
+     get rid of: page #1b1d29 -> this card #202433 -> region #232839 (account card,
+     rail, table frame) -> stat tile #262c3e. */
+  background: var(--color-background-secondary);
+  padding-block: var(--spacing-24);
+  /* no border, no shadow — the value contrast between the steps does all the work */
+}
+
+.th-card-scroll {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-inline: var(--spacing-24);
+  scrollbar-gutter: stable;
+}
+
+/* mobile in-card header, hidden on desktop */
+.th-mobile-header { display: none; }
+
+/* --- Toolbar --- */
+
+.th-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-12);
+  padding-inline: var(--spacing-24);
+  padding-bottom: var(--spacing-32);
+}
+/* A legacy pane already carries the card's 24px inline padding on its own
+   scrolling well, so a toolbar inside one must not add it again. Legacy
+   toolbars also carry more controls than the converted panes do, so they wrap
+   rather than overflow. */
+.pane--legacy .th-toolbar {
+  padding-inline: 0;
+  padding-bottom: var(--spacing-24);
+  flex-wrap: wrap;
+  row-gap: var(--spacing-12);
+}
+.th-toolbar-spacer { flex: 1; }
+/* Anchor for a control that owns its own popover (the date range picker).
+   Was an inline style="position:relative" on four separate host divs. */
+.th-dp-host { position: relative; display: flex; }
+
+/* ==========================================================================
+   8. Components
+   ========================================================================== */
+
+/* --- 8.1 Pill control (archetype 1) --- */
+
+.th-pill {
+  display: flex;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-6);
+  padding: var(--spacing-12) var(--spacing-16);
+  border: none;
+  border-radius: var(--radius-24);
+  background: var(--color-control-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--dur-house) var(--ease-in-out),
+              scale var(--dur-house) var(--ease-in-out),
+              opacity var(--dur-house) var(--ease-in-out);
+  outline-style: solid;
+  outline-width: 2px;
+  outline-offset: 2px;
+  outline-color: transparent;
+}
+.th-pill:focus-visible { outline-color: var(--color-foreground-primary); }
+.th-pill-label {
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--color-control-secondary-foreground);
+  transition: color var(--dur-house) var(--ease-in-out);
+}
+.th-pill:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--color-control-secondary-active);
+  scale: 1.03;
+}
+.th-pill:hover:not(:disabled):not([aria-disabled='true']) .th-pill-label {
+  color: var(--color-control-secondary-foreground-active);
+}
+.th-pill:disabled,
+.th-pill[aria-disabled='true'] { opacity: 0.4; cursor: default; }
+.th-pill[data-state='open'] { background: var(--accent-fill); }
+
+.th-pill-primary { background: var(--color-button-primary); }
+.th-pill-primary .th-pill-label { color: var(--color-button-primary-foreground); }
+.th-pill-primary:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--color-button-primary);
+  filter: brightness(1.08);
+}
+.th-pill-primary:hover:not(:disabled):not([aria-disabled='true']) .th-pill-label {
+  color: var(--color-button-primary-foreground);
+}
+.th-pill-selected { background: var(--accent-fill); }
+.th-pill-selected .th-pill-label { color: var(--color-foreground-selected-secondary); }
+.th-pill-selected:hover:not(:disabled) { background: var(--accent-fill); }
+.th-pill-selected:hover:not(:disabled) .th-pill-label { color: var(--color-foreground-selected-secondary); }
+
+/* --- 8.2 Query field (three-zone command bar) --- */
+
+.th-field {
+  display: flex;
+  height: 34px;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  border-radius: var(--radius-24);
+  background: var(--color-control-secondary);
+}
+.th-field-scope {
+  display: flex;
+  align-items: center;
+  margin-inline-start: var(--spacing-14);
+  margin-inline-end: var(--spacing-10);
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--color-foreground-muted-1);
+  cursor: default;
+}
+.th-field-divider {
+  height: 14px;
+  align-self: center;
+  border-left: 1px solid var(--color-foreground-border-2);
+  opacity: 0.5;
+}
+.th-field-body {
+  display: flex;
+  height: 34px;
+  width: 100%;
+  flex: 1;
+  align-items: center;
+  gap: var(--spacing-10);
+  padding: var(--spacing-12) var(--spacing-8) var(--spacing-12) var(--spacing-14);
+  min-width: 0;
+  color: var(--color-foreground-muted-1);
+}
+/* Spec §12: the input is typ-nocap-label-medium — 13px, weight 500, Oxanium,
+   NOT cap-trimmed (the caret would clip). `relative top:1px` is the optical
+   re-centre the spec calls for. Mono is a modifier for the fields that take a
+   hash or an address, not the default; making it the default is why the
+   generator was injecting a font override inline on every non-mono field. */
+.th-field-body input {
+  position: relative;
+  top: 1px;
+  min-width: 0;
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-weight: 500;
+  color: var(--color-foreground-text);
+  font-family: var(--font-oxanium);
+  font-size: 13px;
+}
+.th-field-mono .th-field-body input {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+/* Compact numeric variant — a threshold or a count. Same pill, same height,
+   same background; it just has no scope zone and no magnifier, because
+   neither means anything for a number you type. */
+.th-field-num { width: auto; min-width: 92px; }
+.th-field-num .th-field-body { padding-inline: var(--spacing-16); }
+.th-field-num .th-field-body input { font-variant-numeric: tabular-nums; }
+/* Firefox and WebKit both render steppers that break the 34px pill. */
+.th-field-num input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
+.th-field-num input[type='number']::-webkit-outer-spin-button,
+.th-field-num input[type='number']::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* Native <select> on the same pill. A real dropdown belongs on the §17
+   floating surface (see TB.menu) and these should migrate to it, but until
+   they do they must at least be the same control height, radius and fill as
+   every other input rather than the browser's default chrome. */
+.th-select {
+  height: 34px;
+  min-width: 140px;
+  padding: 0 var(--spacing-32) 0 var(--spacing-16);
+  border: 0;
+  border-radius: var(--radius-24);
+  background: var(--color-control-secondary);
+  color: var(--color-foreground-text);
+  font-family: var(--font-oxanium);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  appearance: none;
+  /* 8px trailing chevron, same glyph the pills use, drawn as a background so
+     the control keeps a single element. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23b8c2da'%3E%3Cpath d='M12 17.25 1.5 6.75h21z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--spacing-16) center;
+  background-size: 8px 8px;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition: background-color var(--dur-house) var(--ease-in-out);
+}
+.th-select:hover { background-color: var(--color-control-secondary-active); }
+.th-select:focus-visible { outline-color: var(--color-foreground-primary); }
+.th-select:disabled { opacity: 0.4; cursor: default; }
+.th-select option { background: var(--color-floating-surface); color: var(--color-foreground-text); }
+.th-field-body input::placeholder {
+  color: var(--color-foreground-muted-1);
+  font-family: var(--font-oxanium);
+  font-size: 13px;
+}
+.th-field-body input:disabled { cursor: not-allowed; opacity: 0.4; }
+.th-field:focus-within { outline: 2px solid var(--accent-border); outline-offset: 2px; }
+
+
+/* --- 8.4 Section block ---
+   A heading sits directly on the card and its content floats beneath it as
+   rounded strips. No box around the section: the card is the container, and
+   the 1px gaps between strips are the card showing through. */
+
+.th-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-32);
+}
+
+.th-blockhead {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-12);
+  padding: 0 var(--spacing-8) var(--spacing-16);
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+button.th-blockhead { cursor: pointer; }
+.th-blockhead-titles {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-10);
+}
+.th-blockhead-title {
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--color-foreground-primary);
+}
+.th-blockhead-meta { color: var(--color-foreground-muted-3); }
+.th-blockhead-toggle {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--spacing-6);
+  color: var(--color-foreground-muted-3);
+  font-weight: 700;
+  text-transform: uppercase;
+  transition: color var(--dur-house) var(--ease-in-out);
+}
+.th-blockhead:hover .th-blockhead-toggle { color: var(--color-foreground-primary); }
+.th-blockhead-chevron {
+  display: flex;
+  transition: transform var(--dur-house) var(--ease-in-out);
+}
+.th-blockhead[aria-expanded='true'] .th-blockhead-chevron { transform: rotate(180deg); }
+
+/* --- 8.5 Meta strip — the facts at the top of a result ---
+   Flex rather than grid so the last line's cells grow to fill the width and a
+   6-item strip in a 4-column space never leaves an empty hole. The 1px gaps
+   are the card showing through, exactly like the data grid. */
+
+.th-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  border-radius: var(--radius-16);
+  overflow: hidden;
+}
+.th-meta-cell {
+  display: flex;
+  flex: 1 1 200px;
+  min-width: 200px;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--spacing-10);
+  min-height: 78px;
+  padding: var(--spacing-16) var(--spacing-20);
+  background: var(--color-list-background-secondary);
+}
+.th-meta-key {
+  font-weight: 500;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted-1);
+}
+.th-meta-val {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+  min-width: 0;
+  min-height: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-foreground-text);
+}
+.th-meta-val > .txt {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Identifiers are never truncated — they wrap and carry a copy button. */
+.th-meta-val.mono { font-size: 12px; align-items: flex-start; }
+.th-meta-val.mono > .txt {
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+.th-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: var(--spacing-4);
+  border: none;
+  border-radius: var(--radius-6);
+  background: none;
+  cursor: pointer;
+  color: var(--color-foreground-muted-1);
+  transition: color var(--dur-fill) var(--ease-in-out),
+              background-color var(--dur-fill) var(--ease-in-out);
+}
+/* The tagged variant: a copy button that also says WHAT it copies, for the
+   places two of them sit side by side (username / player id). */
+.th-copy-tagged { gap: var(--spacing-4); padding: var(--spacing-2) var(--spacing-6); }
+.th-copy-tag {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+.th-copy-tag::before, .th-copy-tag::after,
+.th-copy::before,     .th-copy::after { content: none; }
+
+.th-copy:hover {
+  color: var(--color-foreground-primary);
+  background: var(--color-surface-2);
+}
+
+/* --- 8.6 Verdict — status by 6% tint + 20% border + full-strength text,
+   the same recipe as a selected chip. No coloured stripe. --- */
+
+.th-verdict {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-12);
+  border-radius: var(--radius-24);
+  padding: var(--spacing-20) var(--spacing-24);
+  background: var(--verdict-bg, var(--color-badge-gray-background));
+  border: 1px solid color-mix(in oklab, var(--verdict-fg, var(--color-badge-gray)) 20%, transparent);
+}
+.th-verdict-top {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-12);
+  flex-wrap: wrap;
+}
+.th-verdict-eyebrow {
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted-1);
+}
+.th-verdict-headline {
+  font-weight: 800;
+  color: var(--verdict-fg, var(--color-foreground-primary));
+  letter-spacing: calc(1em * var(--display-letter-spacing));
+}
+.th-verdict-reason { color: var(--color-foreground-text); max-width: 96ch; }
+
+.th-verdict-APPROVE,
+.th-verdict-APPROVE_MANUAL {
+  --verdict-fg: var(--color-badge-green);
+  --verdict-bg: var(--color-badge-green-background);
+}
+.th-verdict-ESCALATE {
+  --verdict-fg: var(--color-badge-yellow);
+  --verdict-bg: var(--color-badge-yellow-background);
+}
+.th-verdict-ESCALATE_KYC {
+  --verdict-fg: var(--color-badge-orange);
+  --verdict-bg: var(--color-badge-orange-background);
+}
+.th-verdict-CRITICAL_ESCALATE,
+.th-verdict-REFUND {
+  --verdict-fg: var(--color-badge-red);
+  --verdict-bg: var(--color-badge-red-background);
+}
+
+/* --- 8.7 Badges (one recipe, eight hues) --- */
+
+.th-badge {
+  display: inline-flex;
+  height: 22px;
+  align-items: center;
+  border-radius: 29px;
+  padding: 7px var(--spacing-8);
+  white-space: nowrap;
+}
+.th-badge span {
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.th-badge-green { background: var(--color-badge-green-background); }
+.th-badge-green span { color: var(--color-badge-green); }
+.th-badge-red { background: var(--color-badge-red-background); }
+.th-badge-red span { color: var(--color-badge-red); }
+.th-badge-orange { background: var(--color-badge-orange-background); }
+.th-badge-orange span { color: var(--color-badge-orange); }
+.th-badge-yellow { background: var(--color-badge-yellow-background); }
+.th-badge-yellow span { color: var(--color-badge-yellow); }
+.th-badge-blue { background: var(--color-badge-blue-background); }
+.th-badge-blue span { color: var(--color-badge-blue); }
+.th-badge-purple { background: var(--color-badge-purple-background); }
+.th-badge-purple span { color: var(--color-badge-purple); }
+.th-badge-peach { background: var(--color-badge-peach-background); }
+.th-badge-peach span { color: var(--color-badge-peach); }
+.th-badge-gray { background: var(--color-badge-gray-background); }
+.th-badge-gray span { color: var(--color-badge-gray); }
+
+/* --- 8.8 Data grid (CSS grid, subgrid rows, never a <table>) ---
+   Two-layer cell: the outer layer paints the card colour and owns stickiness,
+   the inner layer paints the row colour and owns the 16px end caps. That is
+   what lets a row read as a floating strip while the pinned first column still
+   occludes whatever scrolls under it. --- */
+
+.th-grid-scroll {
+  isolation: isolate;
+  --local-z: 0;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  /* The scroller needs its own inline margin or the rows run to the card edge
+     and there is no room for the 32px radius to read as a corner. 24px, the same
+     as the toolbar above it and the tab strip above that, so everything in a
+     pane starts on one vertical line — at 16 the table was eight pixels wider
+     than its own toolbar, which reads as a mistake rather than as nesting. */
+  margin-inline: var(--spacing-24);
+}
+/* Not inside a drill. That gutter exists so a table in a pane lines up with the
+   toolbar above it and leaves room for the card's 32px radius — a drill has its
+   own 22px body padding doing that job, so the two stacked and the skeleton sat
+   24px further in than the table that replaced it. Which is what made the loading
+   state look like a different, narrower thing. */
+.drill-body .th-grid-scroll { margin-inline: 0; }
+.th-grid {
+  display: grid;
+  row-gap: 1px;
+  min-width: 100%;
+}
+.th-grid-headgroup {
+  position: sticky;
+  top: 0;
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  row-gap: 1px;
+  z-index: calc(var(--local-z) + 4);
+  /* The header must be opaque in its own right. Relying on each head cell to
+     paint its own background leaves the 1px subgrid seams transparent, which
+     is where scrolling rows were bleeding through. */
+  background: var(--color-background-secondary);
+}
+/* The header is a band, not a line of text above the data.
+
+   Spec 14.3 specifies 31px, 12px/500, sentence case, foreground-muted-1 and no
+   surface of its own — the deliberate inversion that keeps a dense table from
+   feeling shouty. It reads as a header over there because the back office's
+   header row sits immediately under a toolbar that fences it in. Ours floats on
+   a bare card above rows that each carry their own surface, and it read as
+   stray text every time somebody looked at it. A hairline under it was not
+   enough either.
+
+   So: a 34px strip on the control surface with 12px end caps, matching the row
+   idiom directly beneath it, and an uppercase micro-label — the same 11px/700
+   treatment the rest of the product's chrome uses. Loud enough to be a header,
+   quiet enough that it is still obviously not data. */
+.th-grid-headrow {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: center;
+  height: 34px;
+  overflow: clip;
+  color: var(--color-foreground-muted-3);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.th-grid-headcell {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  /* Opaque, and one step lighter than the rows below it, so the band reads as
+     chrome over data and the sticky first cell still occludes whatever scrolls
+     under it. There is no column gap in .th-grid, so adjacent cells make one
+     continuous strip. */
+  background: var(--color-control-secondary);
+  font-weight: 700;
+  white-space: nowrap;
+  user-select: none;
+  text-align: left;
+  /* The padding belongs here, on the cell. TB.gridInner puts the label span
+     straight into the head cell — there is no inner wrapper — so the
+     `.th-grid-headcell > div` rules below have never matched anything the app
+     renders, and every column header has been sitting flush against its own
+     cell edge, ~20px left of the data underneath it. That is what made the
+     header row read as text scattered above a table rather than as its
+     columns' labels. Same 20/32 as .th-grid-cell-inner, so they line up. */
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-6);
+  padding: 0 var(--spacing-32) 0 var(--spacing-20);
+}
+.th-grid-headcell > div {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--spacing-6);
+  /* Spec 14.3 top-weights this (pt-5 pb-16) so the label sits high in the 31px
+     band. With the hairline below doing the fencing, the label belongs on the
+     optical centre instead. Kept for hand-written grids that do nest a div;
+     the rule above is the one TB.gridInner's markup actually hits. */
+  padding: 0 var(--spacing-32) 0 var(--spacing-20);
+}
+/* The glyph hugs its own label rather than being flung to the far column edge,
+   where it reads as belonging to the next column along. */
+.th-grid-headlabel {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.th-grid-sort {
+  pointer-events: none;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  opacity: 0.3;
+  color: var(--color-foreground-muted-2);
+}
+.th-grid-body {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  row-gap: 1px;
+  /* The body gets its own stacking context at the floor of the local stack.
+     The pinned first column carries z-index 3 so it can ride over the columns
+     beside it; without this, that 3 competes directly with the sticky header
+     in the scroller's context and any row scrolling underneath paints through
+     the header row. Isolating here keeps the pinned column's z-index a purely
+     row-local concern. */
+  position: relative;
+  isolation: isolate;
+  z-index: 0;
+}
+.th-grid-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: stretch;
+  min-height: 54px;
+  /* Spec §14 requires the row wrapper to clip. `clip` — unlike `hidden` — does
+     not create a scroll container, so the sticky first column still resolves
+     against .th-grid-scroll and keeps working. The old comment here claimed
+     otherwise and dropped the rule, which let cell content paint across its
+     neighbours once the pinned column started overlapping. */
+  overflow: clip;
+}
+.th-grid-cell {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--color-background-secondary);
+  color: var(--color-foreground-text);
+  text-align: left;
+}
+/* Rows alternate between two adjacent steps of the ramp. At long scroll
+   lengths the 1px seam alone stops doing the work — the eye loses which cells
+   belong to which record — so the banding carries it instead. One variable, so
+   hover and tone states override the pair rather than fighting two rules. */
+.th-grid-row { --row-bg: var(--color-list-background-secondary); }
+.th-grid-row:nth-child(even) { --row-bg: var(--color-surface-2); }
+.th-grid-cell > div {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  align-items: center;
+  background: var(--row-bg);
+  transition: background-color var(--dur-fill) var(--ease-in-out);
+}
+.th-grid-row > .th-grid-cell:first-child > div {
+  border-start-start-radius: var(--radius-16);
+  border-end-start-radius: var(--radius-16);
+}
+.th-grid-row > .th-grid-cell:last-child > div {
+  border-start-end-radius: var(--radius-16);
+  border-end-end-radius: var(--radius-16);
+}
+.th-grid-row:hover .th-grid-cell > div {
+  background: color-mix(in oklab, var(--color-base-8) 8%, var(--row-bg));
+}
+
+/* Pinned first column. No divider: drawn on the outer cell it runs through the
+   1px row seams as one continuous rule down the whole grid, which reads as a
+   stray line rather than a column boundary. The row end caps already mark
+   where the column starts. */
+/* End caps, same idiom as a row's — 12 rather than 16 because the band is
+   34px tall and a 16px radius on it reads as a stadium. */
+.th-grid-headrow > .th-grid-headcell:first-child {
+  border-start-start-radius: var(--radius-12);
+  border-end-start-radius: var(--radius-12);
+}
+.th-grid-headrow > .th-grid-headcell:last-child {
+  border-start-end-radius: var(--radius-12);
+  border-end-end-radius: var(--radius-12);
+}
+.th-grid-headrow > .th-grid-headcell:first-child {
+  position: sticky;
+  left: 0;
+  z-index: calc(var(--local-z) + 5);
+  /* Level with the first data cell, which takes four extra pixels because it
+     sits against the row's 16px end cap. */
+  padding-left: var(--spacing-24);
+}
+.th-grid-row > .th-grid-cell:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+}
+
+.th-grid-cell-inner {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--spacing-8);
+  padding-left: var(--spacing-20);
+  padding-right: var(--spacing-32);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The first column sits against the row's 16px end cap, so 20px of padding
+   reads tighter there than it does mid-row. Four more pixels puts the primary
+   identifier optically level with the rest of the row. */
+.th-grid-row > .th-grid-cell:first-child .th-grid-cell-inner,
+.th-grid-headrow > .th-grid-headcell:first-child > div { padding-left: var(--spacing-24); }
+
+.th-grid-enum {
+  color: var(--color-foreground-muted-3);
+  text-transform: uppercase;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+/* Green-1 is reserved for the three accent roles (active nav, current page,
+   positive status). A money column on every row is not one of them — it is
+   data, so it takes the ordinary text colour with tabular figures. */
+.th-grid-money {
+  color: var(--color-foreground-text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.th-grid-secondary {
+  color: var(--color-foreground-muted-3);
+  font-weight: 600;
+}
+.th-grid-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-16);
+  background: var(--color-list-background-secondary);
+  padding: var(--spacing-32);
+  color: var(--color-foreground-muted-1);
+}
+/* Every icon in the system. Filled 24x24 paths, currentColor, sized by the
+   width/height attribute — this only carries the layout reset. */
+.th-icon { display: block; flex-shrink: 0; }
+
+/* A hash or address that must wrap rather than ellipsis, because the tail is
+   as identifying as the head. */
+.th-break { word-break: break-all; color: var(--color-foreground-text); }
+
+.th-muted { color: var(--color-foreground-muted-1); }
+.th-dash { color: var(--color-foreground-muted-2); }
+
+/* Bare uppercase enum. Spec §14 renders low-cardinality categories (user type,
+   asset, network) as a plain label with no container — a pill here would
+   compete with the status badge, which is the one thing in the row that is
+   meant to carry colour. */
+.th-grid-enumeration {
+  color: var(--color-foreground-muted-3);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+/* PII masking hook. `th-sensitive` was already being emitted on the username
+   and email cells but defined nowhere, so it was a silent no-op. The global
+   toggle (§21) flips `data-mask` on the app root. */
+.th-sensitive { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+[data-mask="on"] .th-sensitive {
+  filter: blur(5px);
+  user-select: none;
+  transition: filter var(--dur-house) var(--ease-in-out);
+}
+[data-mask="on"] .th-sensitive:hover { filter: none; }
+
+/* Per-column filter affordance, beside the sort glyph. Same 10px scale and
+   30% resting opacity as .th-grid-sort so a header cell with both reads as
+   one cluster rather than two competing icons. */
+.th-grid-filter {
+  pointer-events: auto;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  border: none;
+  background: none;
+  padding: 0;
+  opacity: 0.3;
+  color: var(--color-foreground-muted-2);
+  cursor: pointer;
+  transition: opacity var(--dur-house) var(--ease-in-out),
+              color var(--dur-house) var(--ease-in-out);
+}
+.th-grid-filter:hover { opacity: 1; }
+.th-grid-filter.is-active {
+  opacity: 1;
+  color: var(--color-foreground-selected-secondary);
+}
+
+/* --- 8.9 Key/value rows ---
+   One strip per pair, so a row reads as a single object with 16px end caps,
+   separated from the next by the same 1px card gap the data grid uses. --- */
+
+.th-rows {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  row-gap: 1px;
+  /* Values here are short. Without a measure cap these strips become
+     2,200px-wide mostly-empty bars on a 2560px screen — the one place the
+     KYT layout visibly suffers at width. The grid and the meta strip still
+     stretch; only the key/value pairs stop. */
+}
+.th-note { max-width: none; }
+.th-rows > .k,
+.th-rows > .v {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+  padding-block: var(--spacing-12);
+  background: var(--color-list-background-secondary);
+}
+.th-rows > .k {
+  padding-left: var(--spacing-20);
+  padding-right: var(--spacing-16);
+  color: var(--color-foreground-muted-1);
+  font-weight: 500;
+  border-start-start-radius: var(--radius-16);
+  border-end-start-radius: var(--radius-16);
+}
+.th-rows > .v {
+  padding-right: var(--spacing-32);
+  min-width: 0;
+  color: var(--color-foreground-text);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  border-start-end-radius: var(--radius-16);
+  border-end-end-radius: var(--radius-16);
+}
+.th-rows > .v.mono { font-size: 12px; }
+.th-rows > .v.negative { color: var(--color-badge-red); }
+
+/* --- 8.9b Note strip --- */
+
+.th-note {
+  margin-top: var(--spacing-12);
+  border-radius: var(--radius-16);
+  background: var(--color-list-background-secondary);
+  padding: var(--spacing-14) var(--spacing-20);
+  color: var(--color-foreground-muted-3);
+}
+.th-note b { color: var(--color-foreground-text); font-weight: 700; }
+
+/* --- 8.10 Error callout --- */
+
+.th-error {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-10);
+  border-radius: var(--radius-24);
+  background: var(--color-badge-red-background);
+  border: 1px solid color-mix(in oklab, var(--color-badge-red) 20%, transparent);
+  padding: var(--spacing-16) var(--spacing-20);
+  color: var(--color-badge-red);
+  font-weight: 600;
+}
+
+/* --- 8.11 Empty / idle state --- */
+
+.th-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-16);
+  padding: var(--spacing-64) var(--spacing-24);
+  text-align: center;
+  color: var(--color-foreground-muted-1);
+}
+.th-empty-tile {
+  display: flex;
+  width: 64px;
+  height: 64px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-24);
+  background: var(--accent-fill);
+  color: var(--color-foreground-selected-secondary);
+}
+.th-empty-title { color: var(--color-foreground-primary); font-weight: 800; text-transform: uppercase; }
+.th-empty-sub { max-width: 56ch; color: var(--color-foreground-muted-1); }
+
+/* --- 8.12 Status chip --- */
+
+.th-status {
+  display: inline-flex;
+  height: 22px;
+  align-items: center;
+  gap: var(--spacing-6);
+  border-radius: 29px;
+  padding: 7px var(--spacing-10);
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.th-status-dot { width: 6px; height: 6px; border-radius: 9999px; background: currentColor; flex-shrink: 0; }
+.th-status-idle { background: var(--color-badge-gray-background); color: var(--color-badge-gray); }
+.th-status-live { background: var(--color-badge-green-background); color: var(--color-badge-green); }
+.th-status-busy { background: var(--color-badge-yellow-background); color: var(--color-badge-yellow); }
+.th-status-error { background: var(--color-badge-red-background); color: var(--color-badge-red); }
+
+/* ==========================================================================
+   10. Responsive — duplicate and hide, never one adaptive component
+   ========================================================================== */
+
+.th-rail-scrim { display: none; }
+.th-circle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-14);
+  border: none;
+  border-radius: var(--radius-64);
+  color: var(--color-foreground-muted-3);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: scale var(--dur-house) var(--ease-in-out);
+  outline-style: solid;
+  outline-width: 2px;
+  outline-offset: 2px;
+  outline-color: transparent;
+}
+.th-circle-btn:focus-visible { outline-color: var(--color-foreground-primary); }
+.th-circle-btn:hover { scale: 1.03; }
+
+@media (min-width: 768px) {
+  /* Spec §12 caps the toolbar search at 268px. `th-field-query` is the wider
+     command-bar variant used where the whole pane is one query (player, IP,
+     address screening) and the value being typed is a UUID or an address. */
+  /* A query field is the reason its pane exists — you type one identifier and
+     the page answers — so it gets the command-bar width. A search field only
+     narrows rows already on screen, so it takes the spec's 268px. Both are the
+     same control; the cap is what says which job it is doing. */
+  .th-field-search { max-width: 268px; }
+  .th-field-query  { max-width: 620px; }
+}
+
+@media (max-width: 767px) {
+  .th-root { background: var(--color-background-secondary); }
+
+  .th-header { display: none; }
+
+  .th-rail {
+    top: 0;
+    bottom: 0;
+    z-index: 60;
+    justify-content: flex-start;
+    padding-top: var(--spacing-24);
+    background: var(--color-background-primary);
+    transform: translate3d(-100%, 0, 0);
+    transition: transform var(--dur-house) var(--ease-in-out);
+    overflow-y: auto;
+  }
+  .th-root[data-nav='open'] .th-rail { transform: translate3d(0, 0, 0); }
+
+  .th-rail-scrim {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    border: none;
+    padding: 0;
+    background: var(--color-backdrop-mobile);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur-house) var(--ease-in-out);
+  }
+  .th-root[data-nav='open'] .th-rail-scrim { opacity: 1; pointer-events: auto; }
+
+  .th-main {
+    top: 0;
+    left: 0;
+    padding-right: 0;
+    padding-bottom: 0;
+  }
+  .th-card {
+    border-radius: 0;
+    padding-top: var(--spacing-16);
+    padding-bottom: var(--spacing-16);
+  }
+  .th-card-scroll { padding-inline: var(--spacing-16); }
+
+  .th-mobile-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-12);
+    padding: 0 var(--spacing-16) var(--spacing-20);
+  }
+  .th-mobile-title {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    justify-content: center;
+    font-size: 19px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--color-foreground-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .th-mobile-slot {
+    display: flex;
+    width: 48px;
+    flex-shrink: 0;
+    justify-content: flex-end;
+  }
+
+  .th-toolbar {
+    flex-wrap: wrap;
+    padding-inline: var(--spacing-16);
+    padding-bottom: var(--spacing-24);
+  }
+  .th-toolbar-spacer { display: none; }
+  .th-toolbar .th-field { max-width: none; flex-basis: 100%; }
+
+  /* the pair, not each half, is the strip */
+  .th-rows { grid-template-columns: minmax(0, 1fr); row-gap: 0; }
+  .th-rows > .k {
+    min-height: 0;
+    padding: var(--spacing-12) var(--spacing-20) var(--spacing-2);
+    border-radius: var(--radius-16) var(--radius-16) 0 0;
+  }
+  .th-rows > .v {
+    min-height: 0;
+    padding: var(--spacing-2) var(--spacing-20) var(--spacing-12);
+    border-radius: 0 0 var(--radius-16) var(--radius-16);
+    margin-bottom: 1px;
+  }
+
+  .th-meta-cell { flex-basis: 100%; min-width: 0; min-height: 0; }
+
+  .th-verdict { padding: var(--spacing-20); }
+}
+
+
+/* --------------------------------------------------------------------------
+   Cap-trim guard — carried over from the KYT stylesheet, and load-bearing.
+
+   Every typ-* class trims leading to the cap-height box using ::before /
+   ::after with `display: table`. Those pseudo-elements become real flex and
+   grid ITEMS, so any element that is both a typ-* target and a layout
+   container gets every child shifted by one slot — a key/value grid renders
+   its values in the key column. Opt those containers out.
+   -------------------------------------------------------------------------- */
+.th-rows::before,             .th-rows::after,
+.th-meta::before,             .th-meta::after,
+.th-meta-val::before,         .th-meta-val::after,
+.th-blockhead-titles::before, .th-blockhead-titles::after,
+.th-grid-cell-inner::before,  .th-grid-cell-inner::after,
+.th-error::before,            .th-error::after,
+.th-blockhead-toggle::before, .th-blockhead-toggle::after,
+.th-status::before,           .th-status::after,
+.th-crumb::before,            .th-crumb::after,
+.th-grid-empty::before,       .th-grid-empty::after,
+.th-badge::before,            .th-badge::after,
+.th-pill::before,             .th-pill::after,
+.th-pill-label::before,       .th-pill-label::after,
+.th-tabs::before,             .th-tabs::after,
+.th-toast::before,            .th-toast::after,
+.th-tiles::before,            .th-tiles::after,
+.th-tile::before,             .th-tile::after,
+.th-tile-body::before,        .th-tile-body::after,
+/* Cap-trim pulls the line box tight to the cap height. On a single-line label
+   that is the point; on `.th-tile-sub`, which also clips its overflow, it
+   shears the descenders off p, y and g. */
+.th-tile-title::before,       .th-tile-title::after,
+.th-tile-sub::before,         .th-tile-sub::after,
+.th-menu-item::before,        .th-menu-item::after,
+.th-palette-item::before,     .th-palette-item::after,
+.th-palette-hint::before,     .th-palette-hint::after,
+.th-verdict-top::before,      .th-verdict-top::after,
+.th-grid-headcell::before,    .th-grid-headcell::after,
+.th-grid-headrow::before,     .th-grid-headrow::after,
+.th-grid-row::before,         .th-grid-row::after,
+.th-grid::before,             .th-grid::after,
+.th-empty::before,            .th-empty::after,
+.th-drawer-head::before,      .th-drawer-head::after,
+.th-modal-head::before,       .th-modal-head::after {
+  content: none;
+}
+
+/* ==========================================================================
+   9. Auth / standalone screens
+   ========================================================================== */
+
+.th-auth {
+  position: relative;
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-24);
+  background: var(--color-background-primary);
+  color: var(--color-foreground-text);
+}
+.th-auth-card {
+  width: 100%;
+  max-width: 420px;
+  border-radius: var(--radius-32);
+  background: var(--color-background-secondary);
+  padding: var(--spacing-48) var(--spacing-40);
+}
+.th-auth-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-16);
+  text-align: center;
+  margin-bottom: var(--spacing-32);
+}
+.th-auth-mark {
+  display: flex;
+  width: 64px;
+  height: 64px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-24);
+  background: var(--accent-fill);
+  color: var(--color-foreground-selected-secondary);
+}
+.th-auth-mark img { width: 28px; height: 28px; }
+/* Holds the wordmark now, not the word "Sonar", so the heading must not add
+   its own line-height above the mask box. */
+.th-auth-title {
+  display: flex;
+  justify-content: center;
+  line-height: 0;
+  margin: 0;
+  color: var(--color-foreground-primary);
+}
+.th-auth-title .th-logo-wordmark { --wordmark-h: 34px; }
+.th-auth-sub { color: var(--color-foreground-muted-3); }
+.th-auth-label {
+  display: block;
+  margin-bottom: var(--spacing-16);
+  text-align: center;
+  color: var(--color-foreground-muted-1);
+}
+/* The 44px height is a deliberate, documented exception to the 34/36 control
+   law (§13). It applies only to this full-width submit on the 420px auth card,
+   where a 34px pill reads as a hairline. Do not copy it into the app chrome.
+   The 24px top margin separates the submit from the field: the stack's 12px
+   gap is for label-to-field, and giving the button the same 12 made it read as
+   attached to the input. */
+.th-auth-btn {
+  display: flex;
+  width: 100%;
+  margin-top: var(--spacing-24);
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-10);
+  border: none;
+  border-radius: var(--radius-24);
+  background: var(--color-button-primary);
+  color: var(--color-button-primary-foreground);
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: scale var(--dur-house) var(--ease-in-out),
+              filter var(--dur-house) var(--ease-in-out);
+  outline-style: solid;
+  outline-width: 2px;
+  outline-offset: 2px;
+  outline-color: transparent;
+}
+.th-auth-btn:focus-visible { outline-color: var(--color-foreground-primary); }
+.th-auth-btn:hover { scale: 1.03; filter: brightness(1.08); }
+.th-auth-btn svg { width: 18px; height: 18px; }
+.th-auth-secondary {
+  display: flex;
+  width: 100%;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-10);
+  border: none;
+  border-radius: var(--radius-24);
+  background: var(--color-control-secondary);
+  color: var(--color-control-secondary-foreground);
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color var(--dur-house) var(--ease-in-out),
+              color var(--dur-house) var(--ease-in-out),
+              scale var(--dur-house) var(--ease-in-out);
+  outline-style: solid;
+  outline-width: 2px;
+  outline-offset: 2px;
+  outline-color: transparent;
+}
+.th-auth-secondary:focus-visible { outline-color: var(--color-foreground-primary); }
+.th-auth-secondary:hover {
+  background: var(--color-control-secondary-active);
+  color: var(--color-control-secondary-foreground-active);
+  scale: 1.03;
+}
+.th-auth-foot {
+  margin-top: var(--spacing-24);
+  text-align: center;
+  color: var(--color-foreground-muted-2);
+}
+.th-auth-stack { display: flex; flex-direction: column; gap: var(--spacing-12); }
+
+/* ==========================================================================
+   11. Sonar-only
+
+   Everything above is shared with the KYT app. Below are the pieces Sonar
+   needs and KYT does not: it has two views and no drill-downs, where Sonar
+   has nineteen tabs, twenty-one drill modals, a side drawer and a command
+   palette. All of it is written on the recipes above — 34px controls, the
+   radius ladder, 6% accent fills, the three durations.
+   ========================================================================== */
+
+/* --- 11.1 Panes ---------------------------------------------------------- */
+
+.pane { display: none; }
+.pane:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+/* Tabs not yet converted keep a free-scrolling padded well inside the card. */
+.pane--legacy:not(.hidden) {
+  display: block;
+  overflow: auto;
+  padding-inline: var(--spacing-24);
+  padding-bottom: var(--spacing-24);
+  scrollbar-gutter: stable;
+}
+/* The results region of a Lookup pane: owns the grid scroller, absorbs the
+   slack, and never lets the page itself scroll (spec §3, min-h-0). */
+/* Content that sits between the toolbar and the grid and needs the card's
+   horizontal padding (the player disambiguation picker). */
+.th-pane-inset { min-width: 0; padding: 0 var(--spacing-24) var(--spacing-16); }
+.th-pane-results {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+/* Panes with no toolbar (Settings) put their cards straight against the card
+   edge, because every other pane inherits its inset from the toolbar above
+   the results region. Give the region its own padding when it stands alone. */
+.th-pane-results.th-pane-padded {
+  padding: var(--spacing-24);
+  overflow-y: auto;
+}
+.th-pane-scroll {
+  flex: 1;
+  min-height: 0;
+  /* Without min-width:0 a flex child defaults to min-width:auto, so a wide
+     table inside stretches this region past the pane and .th-card's overflow
+     clips the right-hand side — taking the status badge off the identity
+     header with it. The inner .t-wrap is what should scroll, not this. */
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-inline: var(--spacing-24);
+  padding-bottom: var(--spacing-24);
+  scrollbar-gutter: stable;
+}
+
+/* --- 11.2 Tab strip ------------------------------------------------------
+   The rail picks a section; this picks the tab inside it. Pills, not a new
+   chip archetype — .th-pill-selected already carries the 6% recipe. */
+
+.th-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+  padding: 0 var(--spacing-24) var(--spacing-20);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.th-tabs::-webkit-scrollbar { display: none; }
+
+/* --- 11.3 Drill tiles ----------------------------------------------------
+   A wrapping grid, not a flex ribbon: ten tiles on a 2560px screen used to
+   collapse into a strip of unreadable slivers. auto-fill with a 280px floor
+   gives three columns at 1280 and up to seven at 2560, all the same size. */
+
+/* Action tiles are controls, not list rows. The 1px-seam / clipped-container
+   idiom belongs to the data grid, where the seam reads as a row separator
+   inside a scroller; applied to ten tiles on a card it reads as one flat slab
+   with no styling at all. Tiles sit at elevation level 3 (§22.1) with their
+   own radius and their own gap. */
+.th-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  /* Equal rows, so a tile whose sub-line wraps to two does not leave the tile
+     beside it short and the row below it a different height. */
+  grid-auto-rows: 1fr;
+  gap: var(--spacing-12);
+}
+.th-tile {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-14);
+  min-height: 78px;
+  padding: var(--spacing-16) var(--spacing-20);
+  border: none;
+  border-radius: var(--radius-16);
+  background: var(--color-surface-2);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  outline-style: solid;
+  outline-width: 2px;
+  outline-offset: 2px;
+  outline-color: transparent;
+  transition: background-color var(--dur-fill) var(--ease-in-out),
+              scale var(--dur-house) var(--ease-in-out);
+}
+.th-tile:hover { background: var(--color-surface-3); scale: 1.02; }
+.th-tile:focus-visible { outline-color: var(--color-foreground-primary); }
+.th-tile-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-12);
+  background: var(--accent-fill);
+  color: var(--color-foreground-selected-secondary);
+}
+.th-tile.alert .th-tile-icon { background: var(--color-badge-red-background);    color: var(--color-badge-red); }
+.th-tile.warn  .th-tile-icon { background: var(--color-badge-orange-background); color: var(--color-badge-orange); }
+.th-tile-body  { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: var(--spacing-6); }
+.th-tile-title { font-weight: 700; color: var(--color-foreground-primary); }
+/* Wrapped, not one line with an ellipsis. On the middle column of a three-up
+   grid the single line cut mid-word — "Every withdrawal transaction this player
+   has ma..." — and a tile that cannot finish its own sentence explains nothing.
+   overflow stays hidden for the cap-trim gift below to clip against. */
+.th-tile-sub   { color: var(--color-foreground-muted-1); overflow: hidden; white-space: normal; }
+.th-tile-arrow { flex-shrink: 0; color: var(--color-foreground-muted-2); display: flex; }
+
+/* Cap trimming (`text-box: cap alphabetic`, plus the ::before/::after fallback)
+   puts the bottom edge of the box on the alphabetic baseline and the top edge on
+   the cap height, so a descender hangs below it and a lowercase ascender — d, h,
+   k, l, t, all of which rise above cap height in Oxanium — hangs above it.
+   Harmless until the same box also clips, and then the clip runs through the
+   middle of every p, y and g and shaves the tops off the ascenders: measured, an
+   11px box holding 17px of ink. Handing both back as padding puts them inside
+   the clip region; the matching negative margins leave the layout box exactly
+   where it was, so tile height and flex centring do not move. Only for plain
+   text spans: never add this to a flex container, where padding would shift the
+   centred children instead. */
+.th-tile-sub,
+.th-profile-fact > .v,
+/* Third element to need this, which is the signal that it is a rule about the
+   combination rather than about any one component: cap-trim plus a clip equals
+   sheared ascenders and descenders, every time. Anything that sets
+   overflow:hidden on trimmed text belongs on this list. */
+.th-pftools-sum {
+  padding-block: 0.25em;
+  margin-block: -0.25em;
+}
+
+.th-tile:hover .th-tile-arrow { color: var(--color-foreground-selected-secondary); }
+
+/* --- 11.4 Floating surfaces: menus and popovers -------------------------- */
+
+.th-surface {
+  border: 0.5px solid var(--color-floating-surface-border);
+  border-radius: var(--radius-24);
+  background: var(--color-floating-surface);
+  box-shadow: 0 0 16px rgb(0 0 0 / 0.04);
+  overflow: clip;
+}
+/* Positioned from the trigger's getBoundingClientRect(), which is
+   viewport-relative - so this has to be `fixed`, not `absolute`. As
+   absolute-on-body the two coordinate systems only agreed while the
+   document scroll offset was 0. */
+.th-popover { position: fixed; z-index: 80; }
+.th-menu { display: flex; flex-direction: column; gap: var(--spacing-4); padding-block: var(--spacing-12); min-width: 220px; max-width: 340px; }
+.th-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-10);
+  min-height: 36px;
+  margin-inline: var(--spacing-12);
+  padding-inline: var(--spacing-12);
+  border: none;
+  border-radius: var(--radius-40);
+  background: none;
+  color: var(--color-foreground-muted-3);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--dur-fill) var(--ease-in-out), background-color var(--dur-fill) var(--ease-in-out);
+}
+.th-menu-item:hover { color: var(--color-foreground-primary); background: var(--color-bo-menu-highlighted-background); }
+.th-menu-item.is-selected { color: var(--color-foreground-selected-secondary); background: var(--accent-fill); }
+.th-menu-item[aria-disabled='true'] { pointer-events: none; opacity: 0.4; }
+.th-menu-divider { height: 0.5px; margin-block: var(--spacing-8); background: var(--color-floating-surface-border); }
+.th-menu-label {
+  padding: var(--spacing-6) var(--spacing-20);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-foreground-muted-1);
+}
+
+/* --- 11.3b Filter chip (spec §15) ---------------------------------------
+   28px, fully rounded, sentence case, 0.5px border, selected at the 6% fill /
+   20% border pair. `--chip-accent` lets a chip carry a data colour (the
+   cross-relationship edge types) in its dot without recolouring the label,
+   which is what "colour belongs to badges, not to text" means in practice. */
+
+.th-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 var(--spacing-12) 0 var(--spacing-10);
+  border: 0.5px solid var(--color-filter-border);
+  border-radius: var(--radius-40);
+  background: var(--color-filter-background);
+  color: var(--color-foreground-muted-3);
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  outline-style: solid;
+  outline-width: 2px;
+  outline-offset: 2px;
+  outline-color: transparent;
+  transition: color .2s var(--ease-in-out), background-color .2s var(--ease-in-out),
+              border-color .2s var(--ease-in-out);
+}
+.th-chip:focus-visible { outline-color: var(--color-foreground-primary); }
+.th-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--chip-accent, currentColor);
+  flex-shrink: 0;
+}
+.th-chip:hover { color: var(--color-foreground-primary); }
+.th-chip.is-on {
+  background: var(--accent-fill);
+  border-color: var(--accent-border);
+  color: var(--color-foreground-selected-secondary);
+}
+.th-chip:disabled { cursor: not-allowed; opacity: 0.5; }
+
+/* --- 11.4b Tooltip -------------------------------------------------------
+   Spec §17 aliases tooltip-background / tooltip-border onto the floating
+   surface. Before this existed the app shipped 73 native `title` attributes,
+   which render in OS chrome at a position the page cannot control — that is
+   the stray grey label that used to appear beside the toolbar. Driven by
+   `data-tip` and one delegated listener; see TB.tooltip. */
+
+.th-tooltip {
+  position: fixed;
+  z-index: 220;
+  max-width: 280px;
+  border: 0.5px solid var(--color-tooltip-border, var(--color-floating-surface-border));
+  border-radius: var(--radius-12);
+  background: var(--color-tooltip-background, var(--color-floating-surface));
+  box-shadow: 0 0 16px rgb(0 0 0 / 0.04);
+  padding: var(--spacing-8) var(--spacing-10);
+  color: var(--color-foreground-muted-3);
+  font-weight: 600;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur-house) var(--ease-in-out);
+}
+.th-tooltip.is-open { opacity: 1; }
+
+/* --- 11.4c Card footer ---------------------------------------------------
+   Spec §16. Meta text on the left, actions on the right, 34px tall, sitting
+   below the grid scroller inside the card. Replaces the four-cell stat strip
+   that used to sit above the table and double as a filter host. */
+
+/* Three tracks, not space-between: the action has to sit in the true centre of
+   the card regardless of how long the meta text runs, and the meta has to
+   finish flush with the right edge of the grid. A flex row with a spacer
+   centres the action relative to the leftover space instead, which drifts as
+   the counts change. */
+.th-footer {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--spacing-12);
+  min-height: 34px;
+  padding: var(--spacing-16) var(--spacing-24) 0;
+}
+.th-footer-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-8);
+  grid-column: 3;
+  color: var(--color-foreground-muted-3);
+  white-space: nowrap;
+}
+.th-footer-sep { color: var(--color-foreground-muted-2); }
+.th-footer-strong { color: var(--color-foreground-text); font-weight: 700; font-variant-numeric: tabular-nums; }
+.th-footer-acts {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-8);
+  grid-column: 2;
+}
+
+@media (max-width: 767px) {
+  /* No room for three tracks; the action leads and the meta wraps beneath. */
+  .th-footer { grid-template-columns: 1fr; justify-items: center; }
+  .th-footer-meta, .th-footer-acts { grid-column: 1; }
+}
+
+/* --- 11.5 Toast ---------------------------------------------------------- */
+
+#th-toasts {
+  position: fixed;
+  z-index: 200;
+  top: var(--spacing-24);
+  right: var(--spacing-24);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+  pointer-events: none;
+}
+.th-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-10);
+  min-width: 260px;
+  max-width: 420px;
+  padding: var(--spacing-12) var(--spacing-16);
+  border: 0.5px solid var(--color-floating-surface-border);
+  border-radius: var(--radius-24);
+  background: var(--color-floating-surface);
+  box-shadow: 0 4px 32px rgb(0 0 0 / 0.08);
+  backdrop-filter: blur(20px);
+  color: var(--color-foreground-text);
+  font-weight: 600;
+  pointer-events: auto;
+  animation: th-rise var(--dur-house) var(--ease-in-out) both;
+}
+.th-toast.is-leaving { animation: th-fade var(--dur-chip) var(--ease-in-out) both; }
+.th-toast-dot { width: 8px; height: 8px; border-radius: 9999px; flex-shrink: 0; background: var(--color-foreground-muted-1); }
+.th-toast-success .th-toast-dot { background: var(--color-badge-green); }
+.th-toast-error   .th-toast-dot { background: var(--color-badge-red); }
+.th-toast-warn    .th-toast-dot { background: var(--color-badge-yellow); }
+@keyframes th-fade { to { opacity: 0; transform: translateY(-6px); } }
+
+/* --- 11.6 Drill modal ---------------------------------------------------- */
+
+.th-modal-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-48) var(--spacing-24);
+  background: color-mix(in oklab, var(--color-surface-backdrop) 70%, transparent);
+  backdrop-filter: blur(4px);
+}
+.th-modal-wrap.is-open,
+.th-modal-wrap.open { display: flex; }
+.th-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(1600px, 100%);
+  max-height: 100%;
+  border-radius: var(--radius-32);
+  background: var(--color-background-secondary);
+  overflow: hidden;
+  animation: th-rise var(--dur-house) var(--ease-in-out) both;
+}
+.th-modal-head { display: flex; align-items: center; gap: var(--spacing-12); padding: var(--spacing-24) var(--spacing-24) var(--spacing-16); }
+.th-modal-title { font-weight: 800; text-transform: uppercase; color: var(--color-foreground-primary); }
+.th-modal-sub   { margin-top: var(--spacing-6); color: var(--color-foreground-muted-3); }
+.th-modal-body  { flex: 1; min-height: 0; overflow: auto; padding: 0 var(--spacing-24) var(--spacing-24); scrollbar-gutter: stable; }
+
+/* --- 11.7 Side drawer ---------------------------------------------------- */
+
+.th-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: color-mix(in oklab, var(--color-surface-backdrop) 70%, transparent);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-house) var(--ease-in-out);
+}
+.th-backdrop.is-open, .th-backdrop.open { opacity: 1; pointer-events: auto; }
+.th-drawer {
+  position: fixed;
+  inset-block: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  width: min(560px, 100vw);
+  padding: var(--spacing-24) var(--spacing-24) var(--spacing-24) 0;
+  transform: translate3d(100%, 0, 0);
+  transition: transform var(--dur-house) var(--ease-in-out);
+}
+.th-drawer.is-open { transform: translate3d(0, 0, 0); }
+.th-drawer.hidden-panel { transform: translate3d(100%, 0, 0); }
+.th-drawer:not(.hidden-panel) { transform: translate3d(0, 0, 0); }
+.th-drawer-surface {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  border-radius: var(--radius-32);
+  background: var(--color-background-secondary);
+  overflow: hidden;
+  box-shadow: 0 4px 32px rgb(0 0 0 / 0.08);
+}
+.th-drawer-head { display: flex; align-items: flex-start; gap: var(--spacing-12); padding: var(--spacing-24) var(--spacing-24) var(--spacing-16); }
+.th-drawer-body { flex: 1; min-height: 0; overflow-y: auto; padding: 0 var(--spacing-24) var(--spacing-24); }
+.th-drawer-foot { padding: var(--spacing-16) var(--spacing-24) var(--spacing-24); }
+
+/* --- 11.8 Command palette ------------------------------------------------ */
+
+.th-palette-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+  background: color-mix(in oklab, var(--color-surface-backdrop) 55%, transparent);
+  backdrop-filter: blur(4px);
+}
+.th-palette-wrap.is-open { display: flex; }
+.th-palette {
+  display: flex;
+  flex-direction: column;
+  width: min(680px, calc(100vw - 48px));
+  max-height: 62vh;
+  border: 0.5px solid var(--color-floating-surface-border);
+  border-radius: var(--radius-24);
+  background: var(--color-floating-surface);
+  box-shadow: 0 4px 32px rgb(0 0 0 / 0.16);
+  overflow: hidden;
+  animation: th-rise var(--dur-chip) var(--ease-in-out) both;
+}
+.th-palette-field {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-12);
+  padding: var(--spacing-16) var(--spacing-20);
+  border-bottom: 0.5px solid var(--color-floating-surface-border);
+  color: var(--color-foreground-muted-1);
+}
+.th-palette-field input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: var(--font-oxanium);
+  font-size: 16px;
+  line-height: 120%;
+  font-weight: 500;
+  color: var(--color-foreground-primary);
+}
+.th-palette-field input::placeholder { color: var(--color-foreground-muted-1); }
+.th-palette-list { flex: 1; min-height: 0; overflow-y: auto; padding-block: var(--spacing-8); }
+.th-palette-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-12);
+  width: calc(100% - var(--spacing-16));
+  min-height: 44px;
+  margin-inline: var(--spacing-8);
+  padding-inline: var(--spacing-12);
+  border: none;
+  border-radius: var(--radius-16);
+  background: none;
+  color: var(--color-foreground-muted-3);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.th-palette-item[aria-selected='true'] { background: var(--accent-fill); color: var(--color-foreground-selected-secondary); }
+.th-palette-meta { margin-inline-start: auto; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-foreground-muted-1); }
+.th-palette-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-16);
+  padding: var(--spacing-10) var(--spacing-20);
+  border-top: 0.5px solid var(--color-floating-surface-border);
+  font-weight: 600;
+  color: var(--color-foreground-muted-1);
+}
+.th-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding-inline: 5px;
+  border-radius: var(--radius-6);
+  background: var(--color-surface-3);
+  color: var(--color-foreground-muted-3);
+  font-weight: 700;
+}
+
+/* --- 11.9 Grid extras Sonar needs ---------------------------------------- */
+
+/* Sortable header cells. KYT sorts before render and leaves the glyph inert;
+   Sonar sorts on click, so the cell is a button and the glyph carries state. */
+/* A sortable header is a <button>, and every one of these declarations exists
+   because the element type fights the band on it.
+
+   `background: none` was here as part of the button reset, and it beats
+   `.th-grid-headcell` on specificity (element + class vs class), so every
+   column you could sort by came out with no band behind it while the ones you
+   could not sort by had one. Same story for the type: `text-transform` and
+   `letter-spacing` are inherited properties, but the UA stylesheet sets
+   `text-transform: none` on form controls specifically to stop that, so the
+   sortable labels stayed sentence case in a row of uppercase ones. `color` and
+   the font metrics need restating for the same reason — a button does not take
+   its parent's.
+
+   No `padding: 0` either: that used to strip the alignment padding off exactly
+   the columns you can click. */
+button.th-grid-headcell {
+  border: none;
+  background: var(--color-control-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: inherit;
+}
+button.th-grid-headcell:hover { color: var(--color-foreground-primary); }
+.th-grid-headcell.is-sorted .th-grid-sort { opacity: 1; color: var(--color-foreground-selected-secondary); }
+
+/* Row-level severity tint, for the IP cluster and fraud feeds. */
+.th-grid-row[data-tone='red']    > .th-grid-cell > div { background: var(--color-list-background-red); }
+.th-grid-row[data-tone='orange'] > .th-grid-cell > div { background: var(--color-list-background-orange); }
+.th-grid-row[data-tone='yellow'] > .th-grid-cell > div { background: var(--color-list-background-yellow); }
+.th-grid-row.is-link { cursor: pointer; }
+.th-grid-row.is-link:hover > .th-grid-cell > div { background: color-mix(in oklab, var(--color-base-8) 6%, var(--color-list-background-secondary)); }
+
+.th-link {
+  /* inline-block because this is now a <button> OR an <a>. The ellipsis rules below
+     need a block-ish box to act on, and a bare inline anchor would ignore them —
+     a long username would run past its cell instead of truncating. */
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: bottom;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--color-foreground-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.th-link:hover { color: var(--color-foreground-selected-secondary); }
+/* Clickable but not the row's primary identifier — the underline is reserved
+   for that one column (spec §14), so a secondary link shows its affordance on
+   hover instead. */
+.th-link-plain { text-decoration: none; color: var(--color-foreground-muted-3); }
+.th-link-plain:hover { text-decoration: underline; }
+.th-pos { color: var(--color-foreground-highlight-1); }
+.th-neg { color: var(--color-badge-red); }
+.th-warn { color: var(--color-badge-yellow); }
+/* Sized like the label and the figure they stand in for, so a tile that is
+   loading is the same height as a tile that has loaded. */
+.th-skel-key { width: 42%; height: 9px; }
+.th-skel-val { width: 68%; height: 14px; }
+.th-skeleton {
+  display: block;
+  border-radius: var(--radius-6);
+  background: var(--color-skeleton-foreground);
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+
+/* --- 11.11 Embed mode (#kyt-check) --------------------------------------- */
+
+body.kyt-embed .th-header,
+body.kyt-embed .th-rail,
+body.kyt-embed .th-tabs { display: none; }
+body.kyt-embed .th-main { top: 0; left: 0; padding: var(--spacing-24); }
+
+/* --- 11.12 Player profile header ----------------------------------------
+   The identity block that sits above everything else on the profile tab:
+   avatar, name, tag row, actions. It is not a card — it sits bare on the
+   content card the same way a .th-blockhead does, and the 1px gap to the
+   stat strip below is the card showing through. */
+
+/* Never let a flex parent squeeze the identity header — it crops the avatar
+   and the name before it shrinks anything else. */
+.th-profile-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-16);
+  /* No padding of its own inside the account card — the card supplies the inset,
+     and 20px at the bottom would double the divider's breathing room below. */
+  padding: 0 0 var(--spacing-20);
+}
+.th-profile-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-16);
+  background: var(--color-badge-purple-background);
+  color: var(--color-badge-purple);
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.th-profile-id     { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: var(--spacing-8); }
+.th-profile-name {
+  font-weight: 800;
+  font-size: 20px;
+  /* 1.1 gives a 22px line box for a 20px extrabold uppercase face, whose caps
+     are taller than that. Combined with the overflow:hidden that makes the
+     ellipsis work, it sheared the tops off the letters. 1.35 fits the glyphs. */
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--color-foreground-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.th-profile-tags   { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-6); }
+.th-profile-acts   { display: flex; align-items: center; gap: var(--spacing-8); flex-shrink: 0; }
+
+/* The identity line: who this account is, readable without scrolling.
+   Wraps at any width; each fact keeps its label and value on one line. */
+.th-profile-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-4) var(--spacing-20);
+  color: var(--color-foreground-muted-1);
+}
+.th-profile-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-6);
+  min-width: 0;
+  max-width: 100%;
+}
+/* The name is already at full strength, so the shared [data-copy] hover
+   brightening does not read on it. Borrow the link hover instead. */
+.th-profile-name[data-copy] {
+  /* Hug the text so the keyboard focus ring frames the name rather than the
+     whole header row. max-width keeps the ellipsis working on long names. */
+  width: fit-content;
+  max-width: 100%;
+}
+.th-profile-name[data-copy]:hover { color: var(--color-foreground-selected-secondary); }
+.th-profile-fact > .k { color: var(--color-foreground-muted-2); text-transform: uppercase; }
+.th-profile-fact > .v {
+  color: var(--color-foreground-secondary);
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.th-profile-fact > .v.mono { font-family: var(--font-mono, ui-monospace, monospace); font-weight: 500; }
+
+/* Click-to-copy values. The copy button beside them stays — it is what makes
+   the behaviour discoverable — this only makes the value itself do the
+   obvious thing when clicked. */
+[data-copy] {
+  cursor: pointer;
+  border-radius: var(--radius-4);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition: color var(--dur-fill) var(--ease-in-out);
+}
+[data-copy]:hover { color: var(--color-foreground-primary); }
+[data-copy]:focus-visible { outline-color: var(--color-foreground-primary); }
+[data-copy]::before, [data-copy]::after { content: none; }
+.th-profile-facts::before, .th-profile-facts::after,
+.th-profile-fact::before,  .th-profile-fact::after,
+.th-stats::before,         .th-stats::after,
+.th-stat::before,          .th-stat::after,
+.th-stat-val::before,      .th-stat-val::after { content: none; }
+
+/* --- 11.14 Stat cards ----------------------------------------------------
+   Discrete cards, not one hairline-divided slab. auto-fit with a 220px
+   floor means six across at 1600 and still six at 2600 — each one gets
+   wider, none of them turns into a 500px strip of empty space. */
+
+/* A row of tiles inside the account card, each its own container. The previous
+   attempt replaced the tiles with hairline dividers on the theory that a card
+   inside a card is a container too many; on screen the rules read as arbitrary
+   lines drawn through the figures, and the tiles are what actually group a label
+   with its number. Nesting is the correct answer here — the outer card says "this
+   account", each inner tile says "one measure of it".
+
+   auto-fit, so a narrow window wraps to two rows rather than crushing six
+   figures into slivers. */
+.th-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-12);
+  padding-top: var(--spacing-20);
+}
+.th-stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--spacing-6);
+  min-height: 74px;
+  padding: var(--spacing-14) var(--spacing-16);
+  border-radius: var(--radius-16);
+  border: none;
+  /* A real navy step, not a white wash. The version before this was 5%
+     --color-foreground-primary over the card, and --color-foreground-primary is
+     #fff — so the tiles came out a desaturated grey-lavender that had left the
+     product's palette altogether. #262c3e is the ramp's next step above the
+     account card's #232839: nested, and still navy.
+
+     The full ramp on this page now reads page #1b1d29 -> region #232839 (account
+     card, rail, table frame, all siblings) -> tile #262c3e. */
+  background: var(--color-surface-2);
+}
+
+/* A stat card that opens a drill. It is a <button>, so it needs the browser's
+   button defaults undone (text-align, font, border) and an affordance that
+   says clickable without turning the strip into a row of controls: a hairline
+   that lifts on hover, plus the pointer. */
+/* No `border` here. It used to reserve a 1px transparent ring for the hover
+   state, which was harmless while every tile was its own card — and became a bug
+   the moment the tiles started carrying a left-hand divider, because the
+   shorthand reset that divider's colour to transparent on exactly the tiles that
+   are buttons. Measured as a 1px rgba(0,0,0,0) border on the Wallets tile.
+
+   The hover affordance is a background wash instead, which is what every other
+   hoverable row in the product uses and needs no reserved space. */
+.th-stat-drill {
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  /* No radius of its own: .th-stat already sets 16, and overriding it here gave
+     the four drillable tiles a 12px corner while the two inert ones kept 16 --
+     measured, and visible as a row of tiles that did not match. */
+  transition: background var(--dur-fast, .12s) ease;
+}
+.th-stat-drill:hover {
+  /* One more step up the same ramp, so hover is a move along it rather than a
+     change of hue. */
+  background: var(--color-list-background-hover, var(--color-surface-3));
+}
+.th-stat-drill:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
+.th-stat-key {
+  font-weight: 500;
+  text-transform: uppercase;
+  color: var(--color-foreground-muted-1);
+}
+.th-stat-val {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+  min-height: 20px;
+  font-weight: 700;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-foreground-primary);
+}
+/* Zero is data, not absence — it recedes rather than disappearing. A live
+   held balance is the one figure on this strip worth colouring. */
+.th-stat-val.is-zero   { color: var(--color-foreground-muted-2); }
+.th-stat-val.is-accent { color: var(--color-foreground-selected-secondary); }
+/* Optional qualifier under the figure — "12 / 400 measured", "within 30-min
+   cap". Same role as footer meta, so the same colour. */
+.th-stat-sub { color: var(--color-foreground-muted-3); }
+.th-stat-val.is-neg    { color: var(--color-badge-red); }
+.th-stat-val.is-zero.is-accent { color: var(--color-foreground-muted-2); }
+
+/* Narrow: the name and the tag row take a line of their own rather than
+   fighting the two action buttons for the same 420px. */
+@media (max-width: 760px) {
+  .th-profile-head   { flex-wrap: wrap; row-gap: var(--spacing-14); }
+  .th-profile-avatar { order: 1; }
+  .th-profile-acts   { order: 2; margin-left: auto; }
+  .th-profile-id     { order: 3; flex: 1 0 100%; }
+}
+
+.th-profile-head::before,   .th-profile-head::after,
+.th-profile-id::before,     .th-profile-id::after,
+.th-profile-tags::before,   .th-profile-tags::after,
+.th-profile-acts::before,   .th-profile-acts::after,
+.th-profile-avatar::before, .th-profile-avatar::after,
+.th-subtabs::before,        .th-subtabs::after { content: none; }
+
+/* --- 11.13 Profile sub-tabs ---------------------------------------------
+   Same pills as the section tabs, one level down. They scroll rather than
+   wrap so the row height never changes as the label set changes. */
+
+/* Two pill rows stacked, identical in size and weight, read as one confusing
+   row of twelve destinations — you cannot tell which level you are choosing.
+   The section tabs stay the 34px extrabold pill; sub-tabs sit a step down:
+   28px, semibold, no resting fill, and only the selected one takes a surface.
+   Same family, clear hierarchy. */
+.th-subtabs {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-4);
+  /* 20px below, matching .th-tabs. The old 4px was only ever enough room for
+     a focus ring, so a stat strip or a table directly beneath the pills read
+     as attached to them — the same mistake as the login button sitting 12px
+     under its field. */
+  /* No left padding. A ghost pill already carries 12px of its own inset, so
+     the container's 8px on top of that pushed the first label 20px right of
+     every block title underneath it — the row visibly started further in
+     than the content it labels. The pill's own padding is enough. */
+  padding: 0 0 var(--spacing-20);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.th-subtabs .th-pill {
+  height: 28px;
+  padding: 0 var(--spacing-12);
+  background: transparent;
+}
+.th-subtabs .th-pill .th-pill-label {
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--color-foreground-muted-3);
+}
+.th-subtabs .th-pill:hover:not(:disabled) { background: var(--color-control-secondary); scale: 1; }
+.th-subtabs .th-pill:hover:not(:disabled) .th-pill-label { color: var(--color-foreground-primary); }
+.th-subtabs .th-pill-selected { background: var(--accent-fill); }
+.th-subtabs .th-pill-selected .th-pill-label { color: var(--color-foreground-selected-secondary); font-weight: 700; }
+.th-subtabs::-webkit-scrollbar { display: none; }
+
+/* --- 11.13b Profile section tabs ----------------------------------------
+   The profile's top row picks a whole section of the account, not a view
+   inside one, so it is the canonical 34px pill (13.2) rather than the 28px
+   step-down the other panes' sub-navs take: extrabold uppercase label, 12px
+   leading icon. Scoped to a modifier rather than changing .th-subtabs, which
+   four other panes use for genuine second-level navigation.
+
+   Idle pills stay unfilled. Eight filled pills in a row read as a wall and
+   the selected one stops being findable, which is the whole reason the 6%
+   recipe exists. Fill and colour change together on selection, nothing else
+   does — no scale, no weight jump, no border. */
+/* Symmetric padding, and that is two fixes in one declaration.
+   The base row is padded bottom-only (0 0 20px), which put 20px + the stack gap
+   above the pills and 20px below — the uneven pair. And because the row is a
+   scroller (overflow-x: auto forces overflow-y to compute as auto too, there is no
+   mixing it with visible), it clipped anything reaching past its edges: the
+   selected pill's focus ring is 2px wide at a 2px offset, so the top and bottom of
+   that white ring were being sliced off.
+   4px inside on both edges gives the ring its room and makes the outer gaps a
+   matched pair, with the stack's 20px doing the actual spacing. */
+.th-subtabs-section {
+  gap: var(--spacing-8);
+  padding: var(--spacing-4) 0;
+}
+.th-subtabs-section .th-pill {
+  height: 34px;
+  padding: var(--spacing-12) var(--spacing-16);
+  background: transparent;
+}
+.th-subtabs-section .th-pill .th-pill-label {
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: normal;
+  color: var(--color-foreground-muted-3);
+}
+.th-subtabs-section .th-pill .th-icon {
+  color: var(--color-foreground-muted-1);
+  transition: color var(--dur-house) var(--ease-in-out);
+}
+.th-subtabs-section .th-pill:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--color-control-secondary);
+}
+.th-subtabs-section .th-pill:hover:not(:disabled):not([aria-disabled='true']) .th-icon {
+  color: var(--color-foreground-primary);
+}
+.th-subtabs-section .th-pill-selected,
+.th-subtabs-section .th-pill-selected:hover:not(:disabled) { background: var(--accent-fill); }
+.th-subtabs-section .th-pill-selected .th-pill-label,
+.th-subtabs-section .th-pill-selected:hover:not(:disabled) .th-pill-label { color: var(--accent-text); }
+.th-subtabs-section .th-pill-selected .th-icon { color: var(--accent-text); }
+
+/* Level three: Rewards splits into per-reward-type tabs inside the profile
+   sub-tab row. The comment above applies again one level down - a third row
+   of identical pills would be unreadable - so these step down the same way
+   the sub-tabs stepped down from the section tabs: 24px, smaller label, and
+   a neutral selected fill so the green above it stays the only accent and
+   still reads as the outer selection. */
+.th-subtabs-nested { padding-bottom: var(--spacing-16); }
+.th-subtabs-nested .th-pill { height: 24px; padding: 0 var(--spacing-10); }
+.th-subtabs-nested .th-pill .th-pill-label { font-size: 11px; font-weight: 600; }
+/* Selected state: a filled chip at this size fought the solid green pill one
+   level up and read as the louder of the two. A quiet surface with an accent
+   label says "selected" without competing. */
+.th-subtabs-nested .th-pill-selected { background: var(--color-control-primary-solid); }
+.th-subtabs-nested .th-pill-selected .th-pill-label {
+  color: var(--accent-fill);
+  font-weight: 700;
+}
+.th-subtabs-nested .th-pill-selected:hover:not(:disabled) { background: var(--color-control-primary-solid); }
+.th-subtabs-nested .th-pill-selected:hover:not(:disabled) .th-pill-label { color: var(--accent-fill); }
+
+
+
+/* --- 11.15 Settings rows + switch ----------------------------------------
+   A preference is a label with its control beside it, and a sentence of
+   consequence underneath. The control sat flush right against the far edge of
+   a full-width card, which put a metre of dead space between the switch and
+   the thing it switches. It now sits next to the label. */
+.th-setting {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  padding: var(--spacing-16) var(--spacing-20);
+  border-radius: var(--radius-16);
+  background: var(--color-list-background-secondary);
+}
+.th-setting + .th-setting { margin-top: var(--spacing-8); }
+.th-setting-head { display: flex; align-items: center; gap: var(--spacing-12); }
+.th-setting-label { font-weight: 600; color: var(--color-foreground-primary); }
+.th-setting-sub   { color: var(--color-foreground-muted-3); max-width: 68ch; }
+
+/* The switch: a <button role="switch">, so it is focusable and announces its
+   state rather than being a styled div. 44x24 track, 18px knob, 3px inset. */
+.th-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--color-control-primary-solid, #222636);
+  cursor: pointer;
+  transition: background .15s ease;
+}
+.th-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-white, #fff);
+  transition: transform .15s ease, background .15s ease;
+}
+.th-switch:hover { background: var(--color-control-secondary-active, #313749); }
+.th-switch[aria-pressed="true"],
+.th-switch[aria-pressed="true"]:hover { background: var(--accent-fill); }
+.th-switch[aria-pressed="true"]::after {
+  transform: translateX(20px);
+  background: var(--color-foreground-selected-secondary);
+}
+.th-switch:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
+
+
+/* --- 11.16 Transactions: grouped left nav --------------------------------
+   1:1 with the back office: an icon and a chevron on each group header,
+   indented icon+label rows beneath, and a filled pill on the active row with
+   its icon in the accent. */
+.th-pfnav-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-16);
+  min-width: 0;
+}
+/* The left column: the rail, and a slot under it for the active view's own
+   controls. Column direction, so the rail's own sizing is a width and not a
+   flex-basis that would be read as a height in here. */
+.th-pfnav-side {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+  min-width: 0;
+}
+.th-pfnav {
+  /* 248, up from 224. The rows had grown (38px, 14px inset) but the width had not,
+     so the longer destinations — "Crypto Transfers", "Referral Claims" — sat with
+     almost no air to the right of them. */
+  width: 248px;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  /* Roomier: this is a card, and it was wearing list padding. */
+  padding: var(--spacing-14) var(--spacing-12);
+  border-radius: var(--radius-24);
+  background: var(--color-list-background-secondary);
+  /* The list inside scrolls, not the rail — see .th-pfnav-list. pfFitPanels caps
+     the rail's height on a short window, and when the rail itself was the
+     scroller the collapse button in the footer was the first thing to vanish
+     off the bottom of it. */
+  overflow: hidden;
+  /* 224px -> 60px is a state change the reader asked for, from the Sections
+     toggle or from zen, so the whole rail glides: width, its own padding, and the
+     gap between its rows. The labels inside fade over the same window rather than
+     disappearing (see is-mini below), so nothing blinks out mid-glide. */
+  transition: width   var(--dur-house) var(--ease-in-out),
+              padding var(--dur-house) var(--ease-in-out);
+}
+.th-pfnav-icon { flex: 0 0 auto; }
+.th-pfnav-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.th-pfnav-head,
+.th-pfnav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-10);
+  width: 100%;
+  /* 38, not 36: the reference rail sits on a ~35px pitch and ours was on 38
+     only because of a 2px gap doing the work a row height should do. The gap
+     moved to 4 and the row absorbed the difference, which reads as roomier at
+     the same total pitch. */
+  min-height: 38px;
+  padding: 0 var(--spacing-14);
+  border: none;
+  border-radius: var(--radius-40);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  /* Fill and ink stay quick — that is hover feedback, and hover wants to feel
+     instant. Everything the rail's own collapse moves runs on the house 300ms
+     instead, so the two do not fight over the same property. */
+  transition: background .12s ease, color .12s ease,
+              width         var(--dur-house) var(--ease-in-out),
+              min-height    var(--dur-house) var(--ease-in-out),
+              padding       var(--dur-house) var(--ease-in-out),
+              border-radius var(--dur-house) var(--ease-in-out),
+              gap           var(--dur-house) var(--ease-in-out),
+              opacity       var(--dur-house) var(--ease-in-out);
+}
+/* Group header: same size as its rows, brighter, with the disclosure caret. */
+.th-pfnav-head { font-weight: 700; color: var(--color-foreground-primary); }
+.th-pfnav-head .th-pfnav-icon { color: var(--color-foreground-muted-1); }
+.th-pfnav-head:hover { background: var(--color-control-secondary); }
+/* The fold is instant now, so the caret is nearly instant too — a 300ms arrow in
+   front of a list that has already moved is the thing that would look wrong. */
+.th-pfnav-caret { transition: transform var(--dur-fill) var(--ease-in-out); color: var(--color-foreground-muted-1); }
+.th-pfnav-group.is-collapsed .th-pfnav-caret { transform: rotate(-90deg); }
+
+/* Rows sit indented under their header. */
+/* The fold. display:none cannot be interpolated, so the group became a
+   single-column grid and the fold is its row track going 1fr -> 0fr — the same
+   mechanism the profile header's collapse uses, for the same reason. The items
+   list keeps the overflow clip and min-height:0 that let the track win. */
+/* No transition on the fold. I added one to stop it snapping, and it was the
+   wrong call: opening a group moves the rail's height, the table's height is
+   measured off the rail, and animating the first meant the second was re-measured
+   every frame while it moved — which reads as a bounce, not as a glide. A table of
+   contents should answer instantly.
+
+   The rail's own 248px <-> 60px width still glides. That one is a deliberate
+   change of shape the reader asked for and nothing is measured off it mid-flight. */
+.th-pfnav-group {
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+.th-pfnav-group.is-collapsed { grid-template-rows: auto 0fr; }
+.th-pfnav-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2, 2px);
+  padding-left: var(--spacing-12);
+  min-height: 0;
+  overflow: hidden;
+  /* No opacity here either — it was the other half of the fold's motion. The
+     padding and gap transitions stay: those belong to the rail's width change,
+     which still animates. */
+  transition: padding-left var(--dur-house) var(--ease-in-out),
+              gap          var(--dur-house) var(--ease-in-out);
+}
+
+
+.th-pfnav-item { font-weight: 600; color: var(--color-foreground-muted-3); }
+/* A destination at the top level of the rail — Sessions has two and no groups
+   at all — has no header above it to give it context, so it carries the
+   header's weight rather than an indented row's. */
+.th-pfnav-item.is-top { font-weight: 700; }
+.th-pfnav-item .th-pfnav-icon { color: var(--color-foreground-muted-1); }
+.th-pfnav-item:hover { background: var(--color-control-secondary); color: var(--color-foreground-primary); }
+/* Active row, on the same recipe as every other active thing in the product:
+   the accent at 6% behind it, green-1 on top. It used to be a solid slate fill
+   with white text — the one place where "selected" was a grey box, so it read
+   as merely hovered — and its icon was painted with --accent-fill, which is a
+   6% wash, not the accent, so the one green thing on the row was invisible. */
+.th-pfnav-item.is-active {
+  background: var(--accent-fill);
+  color: var(--accent-text);
+  font-weight: 700;
+}
+.th-pfnav-item.is-active:hover { background: var(--accent-fill); color: var(--accent-text); }
+.th-pfnav-item.is-active .th-pfnav-icon { color: var(--accent-text); }
+.th-pfnav-head:focus-visible,
+.th-pfnav-item:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: -2px; }
+
+/* A leaf group is a destination, not a header — no caret, no indented list,
+   so it needs no bottom gap of its own. */
+.th-pfnav-group.is-leaf .th-pfnav-items { display: none; }
+
+/* Sections the back office has and Sonar does not answer for yet. Present so
+   the two sidebars read the same, dimmed so nobody spends a click on them.
+   The hover hint says why. */
+.th-pfnav-head.is-soon,
+.th-pfnav-item.is-soon {
+  opacity: .38;
+  cursor: default;
+  pointer-events: auto;   /* keep the tooltip reachable on a disabled button */
+}
+.th-pfnav-head.is-soon:hover,
+.th-pfnav-item.is-soon:hover { background: transparent; color: inherit; }
+
+/* --- 11.17 Chart card ----------------------------------------------------
+   A chart is a block of content, so it takes the same surface as one: the list
+   colour, 16px radius, no border. Two up on a wide card and one up when the
+   column gets narrow, which is where a 260px-tall chart stops being readable. */
+.th-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+  gap: var(--spacing-12);
+  margin-bottom: var(--spacing-16);
+}
+.th-chart {
+  min-width: 0;
+  padding: var(--spacing-16) var(--spacing-16) var(--spacing-12);
+  border-radius: var(--radius-16);
+  background: var(--color-list-background-secondary);
+}
+.th-chart-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-12);
+  padding-bottom: var(--spacing-14);
+}
+/* The title names the single series, which is why these charts carry no legend
+   box. Same micro-label as a column header — it is chrome over data. */
+.th-chart-title {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-foreground-muted-3);
+}
+/* The period roll-up for the measure on screen: one number, so the reader is
+   not adding up columns by eye. Text ink, never the series colour. */
+.th-chart-sub { color: var(--color-foreground-muted-1); font-weight: 600; white-space: nowrap; }
+.th-chart-body { position: relative; height: 240px; }
+
+/* The destinations. Owns the row gap, so the footer below is not part of the
+   rhythm, and owns the scroll, so the footer cannot be scrolled away from. */
+.th-pfnav-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* Bottom right, and only ever this one control. It is the one thing in the rail
+   that is about the rail rather than about the account, so it sits apart from the
+   list instead of pretending to be the first item in it — which is what the old
+   "SECTIONS" header row did, spending a full row to label a column of section
+   names with the word "sections". */
+.th-pfnav-foot {
+  display: flex;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  margin-top: var(--spacing-8);
+  padding-top: var(--spacing-4);
+}
+.th-pfnav.is-mini .th-pfnav-foot { justify-content: center; }
+/* Uncapped (see pfFitPanels), so the icon list has nothing to scroll and should
+   not reserve or draw a scrollbar down the middle of the tiles. */
+.th-pfnav.is-mini .th-pfnav-list { overflow-y: visible; }
+
+.th-pfnav-body { flex: 1; min-width: 0; }
+
+/* --- 11.16d Profile: the expanded table -----------------------------------
+   One button, on a row that was already there. The account header and the stat
+   strip are ~240px of vertical chrome answering questions you asked before you
+   opened the ledger; while you are reading the ledger they are 240px the table
+   could have had, and the rail is another 164px of width. Expand takes both.
+
+   The tab row stays behind, for two reasons. It is the analogue of the toolbar
+   the full-width tables on the other panes keep above them. And it is the only
+   control that survives the collapse, so it is the one that has to hold the
+   toggle: a button that hides itself has no way back. */
+.th-pfbar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-12);
+}
+.th-pfbar > .th-subtabs   { flex: 1 1 auto; min-width: 0; }
+.th-pfbar > .th-pfbar-slot { flex: 0 0 auto; display: flex; }
+/* Overview offers no toggle, and a flex gap is paid for an empty child. */
+.th-pfbar > .th-pfbar-slot:empty { display: none; }
+
+/* The profile's own vertical rhythm. th-stack's 32px was set for a page of
+   stacked blocks; on this tab the regions are cards with a pill row between them,
+   and that row already carries 20px of its own bottom padding. So the gap above
+   the pills was 32 and the gap below was 20 — measurably uneven, and read as a
+   misalignment rather than as a rhythm. One figure on both sides, and the tighter
+   of the two, because three cards with 32px trenches between them is a lot of
+   nothing on a screen that is short of room. */
+#player-results .th-stack { gap: var(--spacing-20); }
+
+/* grid-template-rows 1fr -> 0fr is the only height collapse that interpolates.
+   max-height wants a pixel figure and this height is not a constant: the
+   identity block rewraps at every width and the strip is six cards or two rows
+   of three. The inner element carries the overflow clip, and the 32px the stack
+   used to put between these two children, so with zen off nothing has moved. */
+.th-pfchrome {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--dur-house) var(--ease-in-out),
+              margin-bottom     var(--dur-house) var(--ease-in-out),
+              opacity           var(--dur-house) var(--ease-in-out);
+}
+/* The account card. Identity and the figures are one object, not two things
+   that happen to be stacked: they answer the same question ("who is this and
+   what have they got") and every other region on this page — the rail, the
+   table — is already a card. Loose on the page background they read as the only
+   un-framed content in the product.
+
+   The 32px the stack used to put between them becomes 0 and the divider inside
+   .th-stats does that work instead, which is what makes it one card rather than
+   two stuck together. */
+.th-pfchrome-in {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: var(--spacing-20) var(--spacing-24);
+  border-radius: var(--radius-24);
+  background: var(--color-list-background-secondary);
+}
+.is-pfzen .th-pfchrome {
+  grid-template-rows: 0fr;
+  /* A stack child of zero height still holds its own 32px gap open. */
+  margin-bottom: calc(-1 * var(--spacing-32));
+  opacity: 0;
+}
+/* The card's own padding has to collapse with it, or 40px of empty card survives
+   the fold. Transitioned on the same clock as everything else in the collapse. */
+.th-pfchrome-in { transition: padding var(--dur-house) var(--ease-in-out); }
+.is-pfzen .th-pfchrome-in { padding-top: 0; padding-bottom: 0; }
+/* The rail is on its icons for as long as zen is, so its own toggle has nothing
+   left to choose. */
+.is-pfzen .th-pfnav-toggle { display: none; }
+
+/* --- 11.16e Money cell: dollars over crypto ------------------------------
+   Two lines, not two spans side by side. The dollar figure is what the reader
+   scans down the column; the crypto under it is the audit trail. Beside each
+   other, the crypto competed with the next column's value for the same glance.
+
+   is-credit paints the dollars in the accent. It is the one money case the
+   single-accent rule permits: green-1 is for active nav, current page and
+   positive status, and money arriving in an account is positive status. Opt-in
+   per call site, never automatic — "every money column is green" is the misuse
+   the rule exists to stop. */
+.th-money {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2, 2px);
+  min-width: 0;
+}
+.th-money-usd {
+  color: var(--color-foreground-text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.th-money.is-credit .th-money-usd { color: var(--accent-text); }
+.th-money-sub {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-6);
+  min-width: 0;
+  color: var(--color-foreground-muted-3);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The coin's own mark. The only foreign colour in a single-accent product, kept
+   to a 10px dot for exactly that reason: the ticker is read, the dot is
+   recognised. An unknown currency keeps the neutral fill rather than being
+   guessed at. */
+.th-coin {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-foreground-muted-2);
+}
+/* The real mark. 15px rather than the dot's 10px: these are circular badges with
+   a glyph inside, and at 10px the glyph closes up into a smudge. No background of
+   its own — the artwork brings its own disc.
+
+   15 rather than 14 because the viewBox carries a 1.5-unit margin now (see
+   pfCoin): the disc ends up ~13.7px of ink inside a 15px box, which is the same
+   apparent size as the old edge-to-edge 14px but with a rim that is actually
+   round instead of flattened top and bottom. */
+.th-coin.is-art {
+  width: 15px;
+  height: 15px;
+  background: none;
+  display: block;
+  overflow: visible;
+}
+.th-coin.is-art > svg { display: block; width: 15px; height: 15px; overflow: visible; }
+.th-coin-btc { background: #f7931a; }
+.th-coin-eth { background: #8f9bd6; }
+.th-coin-usdt { background: #26a17b; }
+.th-coin-usdc { background: #3b82f6; }
+.th-coin-xrp { background: #9aabbd; }
+.th-coin-ltc { background: #b0b4b8; }
+.th-coin-sol { background: #b072ff; }
+.th-coin-doge { background: #d2b95a; }
+.th-coin-trx { background: #ef4a5c; }
+.th-coin-pol { background: #9d6bff; }
+.th-coin-matic { background: #9d6bff; }
+.th-coin-bnb { background: #f0b90b; }
+.th-coin-ada { background: #4a7dff; }
+.th-coin-avax { background: #ec6b6b; }
+.th-coin-ton { background: #37a9ea; }
+.th-coin-bch { background: #5fc38a; }
+.th-coin-eur { background: #7f9cff; }
+.th-coin-usd { background: #5cc79a; }
+
+/* A code is a token you copy, not a sentence, so it takes a container. Same
+   treatment for cashdrop codes and referral codes — the same kind of string
+   doing the same job in two tables. */
+.th-code {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 var(--spacing-10);
+  border-radius: var(--radius-12);
+  /* Translucent, not a fixed surface token, and this is the whole point of the
+     rule. Grid rows alternate between --color-list-background-secondary and
+     --color-surface-2, and --color-control-secondary resolves to --color-base-11
+     which IS --color-surface-2 — so the first version of this pill was exactly
+     the colour of every second row and vanished into it. A percentage of the
+     foreground over transparent is relative to whatever is behind it, so it
+     reads on both rows, and on the drill-in surfaces too. Same idiom as
+     --accent-fill, which is 6% mint over transparent for the same reason. */
+  background: color-mix(in srgb, var(--color-foreground-primary) 11%, transparent);
+  /* A hairline as well as a fill: 11% alone is legible but soft, and a code is a
+     token with edges — the border is what makes it read as a container rather
+     than as a slightly brighter patch of row. */
+  border: 0.5px solid color-mix(in srgb, var(--color-foreground-primary) 16%, transparent);
+  color: var(--color-foreground-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* --- 11.16f The table toolbar ---------------------------------------------
+   Search, Filters and Display on the left; Export, Refresh and Expand as icons
+   on the right. Three verbs that are the same on every table in the product, so
+   they lose their labels: written out, they are the same three words repeated
+   down every section, and the hover hint plus aria-label carry the name for the
+   one reader in a hundred who needs it. */
+/* One surface holding the controls and the table they act on. Radius 24 like
+   every other card; the header band inside keeps its own 12px end caps, so the
+   two radii nest rather than fighting. */
+.th-pfpanel-frame {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  padding: var(--spacing-12);
+  border-radius: var(--radius-24);
+  background: var(--color-list-background-secondary);
+}
+.th-pftools {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-10);
+  /* 12 above the header row, nothing else: the frame supplies the outer inset. */
+  padding: 0 var(--spacing-4) var(--spacing-12);
+}
+.th-pftools-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-10);
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.th-pftools-right { display: flex; align-items: center; gap: var(--spacing-8); flex: 0 0 auto; }
+.th-pftools-left > .th-field { flex: 0 1 300px; min-width: 140px; }
+/* How much of the table survived the filter. Blank when nothing is filtering,
+   because "43 of 43" is noise. */
+.th-pftools-count { color: var(--color-foreground-muted-3); font-weight: 600; white-space: nowrap; }
+/* The section's roll-up. Brighter than the filtered-row count beside it, because
+   it is data about the account rather than a note about the view. Allowed to
+   shrink away first when the toolbar runs out of room: the controls have to stay
+   usable, and this figure is also derivable from the rows below it. */
+.th-pftools-sum {
+  color: var(--color-foreground-text);
+  font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.th-pftools-zen { display: flex; }
+
+/* The 34px pill with the label taken out: square, so a row of them is a row of
+   equal targets rather than three different widths. */
+.th-pill-icon {
+  width: 34px;
+  padding: 0;
+  justify-content: center;
+}
+
+/* A filtered-out row leaves the flow entirely rather than being dimmed. The
+   grid's rows are subgrids, so a hidden row costs nothing structurally, and a
+   dimmed row still has to be scrolled past. */
+.th-grid-row.is-filtered-out { display: none; }
+
+/* A hidden column keeps its cells — removing them would desynchronise every row
+   from the header, since the rows are subgrids of the same tracks — and has its
+   track collapsed to 0px instead. The padding has to go with it or the content
+   bleeds into the neighbour. */
+.th-grid-headcell.is-col-hidden,
+.th-grid-cell.is-col-hidden {
+  padding: 0;
+  overflow: hidden;
+}
+.th-grid-cell.is-col-hidden > div { overflow: hidden; }
+
+/* Compact density. The 54px grid row is the house measure and stays the default;
+   this is for the reader comparing forty rows at once, who would rather scroll
+   less than breathe more. */
+/* One rule, not two: .th-grid-cell-inner has no height of its own — the row's
+   min-height drives it — so setting the row is the whole change. */
+.th-grid.is-dense .th-grid-row { min-height: 40px; }
+
+/* Stack on narrow viewports rather than squeezing the table. */
+@media (max-width: 900px) {
+  .th-pfnav-wrap { flex-direction: column; }
+  .th-pfnav { flex: 0 0 auto; width: 100%; }
+}
+
+/* --- 11.16b Transactions nav: the collapsed rail -------------------------
+   The rail costs 248px of the table's width, and an analyst reading a wide
+   ledger wants them back. Collapsed it keeps every live destination reachable
+   as a 44px icon tile — the app's own rail idiom, including the 12px -> 14px
+   radius bloom on the active one — and drops the group headers, because a
+   header with no label is an icon that does nothing. The two inert leaf rows
+   (Gameplay, Manual Actions) go with them: they are chrome, and chrome is the
+   first thing to give up the space. */
+.th-pfnav-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-8, 8px);
+  background: transparent;
+  color: var(--color-foreground-muted-2);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--dur-fill) var(--ease-in-out),
+              color var(--dur-fill) var(--ease-in-out);
+}
+.th-pfnav-toggle:hover { background: var(--color-control-secondary); color: var(--color-foreground-primary); }
+.th-pfnav-toggle:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: -2px; }
+.th-pfnav-toggle-icon { flex: 0 0 auto; }
+
+.th-pfnav.is-mini {
+  /* A width, not a flex-basis: the rail lives in a column now (it has the
+     view's controls stacked under it), and a basis in a column is a height. */
+  width: 60px;
+  align-items: center;
+  padding: var(--spacing-8);
+  gap: var(--spacing-4);
+}
+
+/* Not display:none. The rail's width is animated, so anything that leaves with
+   it has to leave over the same 300ms, or the labels blink out one frame into a
+   glide that is still running. Text collapses to a zero basis behind an overflow
+   clip and fades; the group headers fold on the group's own row track, the same
+   mechanism the group fold uses. */
+.th-pfnav.is-mini .th-pfnav-text,
+.th-pfnav.is-mini .th-pfnav-caret {
+  flex: 0 0 0;
+  width: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+.th-pfnav-text,
+.th-pfnav-caret {
+  transition: opacity    var(--dur-house) var(--ease-in-out),
+              flex-basis var(--dur-house) var(--ease-in-out),
+              width      var(--dur-house) var(--ease-in-out);
+}
+.th-pfnav.is-mini .th-pfnav-head {
+  min-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+/* Every destination shows regardless of which groups are collapsed — the
+   caret that would reopen one is not on screen. */
+.th-pfnav.is-mini .th-pfnav-items,
+.th-pfnav.is-mini .th-pfnav-group.is-collapsed .th-pfnav-items {
+  display: flex;
+  padding-left: 0;
+  gap: var(--spacing-4);
+  opacity: 1;
+}
+/* Collapsed or not, the icon rail lists every destination — the caret that would
+   reopen a group is not on screen there — so the fold's row track is released. */
+.th-pfnav.is-mini .th-pfnav-group,
+.th-pfnav.is-mini .th-pfnav-group.is-collapsed { grid-template-rows: 0fr auto; }
+.th-pfnav.is-mini .th-pfnav-group.is-leaf .th-pfnav-items { display: none; }
+.th-pfnav.is-mini .th-pfnav-group + .th-pfnav-group { margin-top: var(--spacing-12); }
+.th-pfnav.is-mini .th-pfnav-item {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  justify-content: center;
+  border-radius: var(--radius-12);
+  /* gap: 0, and this is the whole reason the icons looked off-centre. The tiles
+     themselves measure dead centre in the rail — verified at 0.0px offset — but
+     the row is still a flex line of [icon][gap][label], and the label collapsing
+     to zero width does not collapse the 10px gap in front of it. So the content
+     box was 16 + 10 + 0 = 26px centred in 44, which put the icon 5px left of the
+     tile's middle. Removing the gap in the collapsed state is the fix; it is on
+     the transition list already, so it closes with the label rather than jumping. */
+  gap: 0;
+}
+/* Same for the group headers, for the same reason — they are the same flex row
+   with a caret on the end. */
+.th-pfnav.is-mini .th-pfnav-head { gap: 0; }
+.th-pfnav.is-mini .th-pfnav-item.is-active { border-radius: var(--radius-14); }
+
+/* --- 11.16c Transactions: the table owns its own scroll -------------------
+   A section used to print its whole ledger straight into the page scroller, so
+   a player with four hundred transfers made the profile scroll for a metre and
+   took the column headers off screen on the way. Each table is now a scroller
+   in its own right: the header stays pinned to the top of it, the page behind
+   it does not move, and the horizontal overflow that .th-pane-scroll silently
+   clipped is reachable.
+
+   No section heading. The section name is already the selected row in the nav
+   two inches to the left, so a 50px uppercase repeat of it was the most
+   expensive line on the screen. */
+.th-pfpanel { display: flex; flex-direction: column; min-width: 0; }
+.th-pfpanel-frame > .th-pfpanel-scroll { margin: 0; }
+/* The grid's outer cell layer is the colour BEHIND the rows — it is what shows in
+   the 1px seam between them and in the notches left by each row's 16px end caps.
+   It is hard-coded to --color-background-secondary (#202433) because the grid used
+   to sit straight on the page card, which is that colour. Inside the frame the
+   parent is #232839, so every seam and every rounded corner was painting a darker
+   wedge that read as an odd stripe between the rows. It follows its parent here. */
+.th-pfpanel-frame .th-grid-cell,
+/* The header band has the same remnant for the same reason. .th-grid-headgroup is
+   opaque on purpose — the 1px subgrid seams between head cells would otherwise let
+   scrolling rows bleed through — but it is opaque in the old parent's colour, so
+   inside the frame those seams and the band's end caps painted #202433 against
+   #232839. Both layers follow their parent now. */
+.th-pfpanel-frame .th-grid-headgroup { background: var(--color-list-background-secondary); }
+.th-pfpanel-scroll {
+  isolation: isolate;
+  --local-z: 0;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  /* First guess only, so a long ledger never paints a metre tall before the
+     measurement lands. pfFitTxTables() overwrites this with the real figure:
+     the chrome above the table is not a constant — the identity block wraps
+     differently at every width and the stat strip is six cards or two rows of
+     three — so it is measured rather than assumed. */
+  max-height: max(280px, calc(100dvh - 580px));
+}
+/* A caption, for the sections that stack two tables and would otherwise be
+   two anonymous grids. Deliberately not the block heading it replaced: no
+   uppercase, no 800 weight, one line. */
+.th-pfpanel-cap,
+.th-pfpanel-sum {
+  padding: 0 var(--spacing-8) var(--spacing-10);
+  color: var(--color-foreground-muted-3);
+  font-weight: 700;
+}
+/* The caption can carry a badge beside it — "cached", "click a row to drill" —
+   so it is a row, not a line of text. */
+.th-pfpanel-cap { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-10); }
+/* Controls over the table: they live in the panel but outside the scroller, so
+   they hold still while the rows move. */
+/* Under the table: Load more, and anything else that acts on the whole list.
+   Left-aligned, because it continues the rows rather than commanding them. */
+.th-pfpanel-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+  padding: var(--spacing-12) var(--spacing-8) 0;
+}
+/* A negative figure in a money column. The same red the row values use, not the
+   badge background — this is data, so it takes ink and no container. */
+.th-money-neg { color: var(--color-badge-red); }
+.th-pfpanel-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  /* Right, like the Export cluster in the spec's toolbar. Left-aligned on a
+     bare card they read as two loose buttons that happened to land there; over
+     the table's right edge they read as its controls. */
+  justify-content: flex-end;
+  gap: var(--spacing-8);
+  padding: 0 var(--spacing-8) var(--spacing-12);
+}
+/* Row selection box. Still a native <input type=checkbox>, so it stays
+   keyboard-operable and announces its state, but drawn by us: `accent-color`
+   only tints the browser's own control, which on a dark card is a white box
+   with a blue-ish tick and reads as a form field from another website.
+
+   Same recipe as every other selected thing in the system — 6% accent fill,
+   accent-coloured border, accent glyph — so a ticked row matches the active
+   nav item and the selected pill instead of inventing a fourth idea of "on".
+   The tick is a rotated two-sided border rather than a glyph or an SVG mask:
+   it stays crisp at 16px on any device pixel ratio. */
+.th-check,
+.fw-check {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-right: var(--spacing-10);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-8) 45%, transparent);
+  border-radius: var(--radius-4);
+  background: transparent;
+  cursor: pointer;
+  transition: background-color var(--dur-fill) var(--ease-in-out),
+              border-color var(--dur-fill) var(--ease-in-out);
+}
+.th-check:hover,
+.fw-check:hover { border-color: var(--color-foreground-muted-3); }
+.th-check:checked,
+.fw-check:checked {
+  background: var(--accent-fill);
+  border-color: color-mix(in oklab, var(--color-surface-selected-secondary) 40%, transparent);
+}
+.th-check:checked::after,
+.fw-check:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border: solid var(--accent-text);
+  border-width: 0 1.6px 1.6px 0;
+  transform: rotate(45deg);
+}
+.th-check:focus-visible,
+.fw-check:focus-visible { outline: 2px solid var(--color-foreground-primary); outline-offset: 2px; }
+/* A figure the table cannot show at a glance ("$4,102 received"). The row
+   count died with the heading; a total did not deserve to. */
+.th-pfpanel-sum { font-weight: 600; }
+
+@media (max-width: 900px) {
+  /* Stacked, the table already has the full width, so the mini rail has
+     nothing left to buy — give the labels back. */
+  .th-pfnav.is-mini { flex: 0 0 auto; width: 100%; padding: var(--spacing-10) var(--spacing-8); }
+  .th-pfnav.is-mini .th-pfnav-toggle { display: none; }
+  .th-pfnav.is-mini .th-pfnav-head { display: flex; }
+  .th-pfnav.is-mini .th-pfnav-text { display: block; }
+  .th-pfnav.is-mini .th-pfnav-items { padding-left: var(--spacing-12); }
+  .th-pfnav.is-mini .th-pfnav-item {
+    width: 100%;
+    height: auto;
+    min-height: 36px;
+    padding: 0 var(--spacing-12);
+    justify-content: flex-start;
+    border-radius: var(--radius-40);
+  }
+}
+
+/* ==========================================================================
+   12. Visibility
+
+   Everything above is unlayered CSS, and unlayered rules beat every layered
+   one — including Tailwind's `.hidden`. sonar.js shows and hides more or less
+   the entire app by toggling that class, so it has to win here. Same for the
+   native [hidden] attribute.
+   ========================================================================== */
+
+[hidden],
+.hidden { display: none !important; }

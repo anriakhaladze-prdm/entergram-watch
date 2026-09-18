@@ -1,0 +1,94 @@
+/* ==========================================================================
+   Player outreach - only what this tool adds on top of the design system.
+
+   Everything here is a token or on the scale. Where the system has no recipe
+   (a search field, a count on a rail item, a mood cell) the nearest archetype
+   is derived rather than invented: the search field is the 34px pill control
+   from §13.1, the rail count reuses the nav label's geometry, the mood cell is
+   badge text without the badge.
+   ========================================================================== */
+
+/* Search: archetype 1, the 34px pill, with a text input inside it. */
+.ow-search {
+  display: flex;
+  height: 34px;
+  align-items: center;
+  gap: var(--spacing-8);
+  border-radius: var(--radius-24);
+  background: var(--color-control-secondary);
+  padding: 0 var(--spacing-16);
+  transition: background var(--dur-house) var(--ease-in-out);
+}
+.ow-search:focus-within { background: var(--color-control-secondary-active); }
+.ow-search svg { flex-shrink: 0; color: var(--color-foreground-muted-2); }
+.ow-search input {
+  width: 180px;
+  border: none;
+  background: none;
+  color: var(--color-foreground-text);
+  font-family: var(--font-oxanium);
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+}
+.ow-search input::placeholder { color: var(--color-foreground-muted-3); font-weight: 500; }
+
+/* The count on a rail item. The rail is the filter here, so each section
+   carries how many rows it holds; without the number the rail is three
+   identical grey tiles. */
+.ow-rail-count {
+  margin-top: var(--spacing-4);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  color: var(--color-foreground-muted-1);
+}
+.th-nav-link[aria-current='page'] .ow-rail-count { color: var(--color-foreground-selected-secondary); }
+
+/* Mood. Badge colour, no badge: a second pill on every row turns the grid into
+   a wall of capsules, and the state column already carries one. */
+.ow-mood { font-weight: 700; text-transform: uppercase; }
+.ow-mood-at_risk { color: var(--color-badge-red); }
+.ow-mood-negative { color: var(--color-badge-orange); }
+.ow-mood-positive { color: var(--color-badge-green); }
+.ow-mood-neutral { color: var(--color-foreground-muted-3); }
+
+/* A figure worth noticing on its own: a player silent far longer than the chat
+   suggests. Colour only, never bold as well, so the row keeps one emphasis. */
+.ow-stale { color: var(--color-badge-red); }
+
+.ow-nums { font-variant-numeric: tabular-nums; }
+.ow-muted { color: var(--color-foreground-muted-3); }
+.ow-sub { color: var(--color-foreground-muted-2); }
+
+/* Sort affordance on a header cell, which the system draws but does not make
+   clickable, because its grids sort server side. */
+.ow-sortable { cursor: pointer; }
+.ow-sortable:hover .th-grid-headlabel { color: var(--color-foreground-primary); }
+.ow-sort-on { opacity: 1 !important; color: var(--color-foreground-selected-secondary) !important; }
+
+.ow-toolbar-note {
+  margin-left: auto;
+  color: var(--color-foreground-muted-2);
+  white-space: nowrap;
+}
+
+/* Padding is applied twice by the system, once on the cell and again on its
+   inner element: 20 + 32 on the outer and 20 + 32 on the inner is 104px of a
+   124px column, which left a 6-character header with 20px to render into and
+   every numeric column showing a sort arrow and no word. Measured, not
+   guessed.
+
+   The system's figures suit its own example grid, which is six wide columns.
+   This one is nine narrow ones, so the padding collapses to a single 14px on
+   each side. Called out because it is a deliberate departure from §14. */
+.th-grid-headcell,
+.th-grid-cell { padding-left: 0; padding-right: 0; }
+.th-grid-headcell > div,
+.th-grid-cell > div > .th-grid-cell-inner,
+.th-grid-cell-inner { padding-left: var(--spacing-14); padding-right: var(--spacing-14); }
+.th-grid-headcell .th-grid-headlabel { flex: 1 1 auto; min-width: 0; }
+.ow-nums { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* The rail is a filter, so an inactive section should still read as available
+   rather than disabled. */
+.th-nav-link { text-decoration: none; }

@@ -1,0 +1,288 @@
+/* ==========================================================================
+   Shared back-office sign-in screen
+
+   PORTABLE. This file and signin.js are a self-contained pair: drop both into
+   any Thrill back-office tool that already loads thrill.css, render the markup
+   from the block comment below, and the screen is identical everywhere. There
+   are no app-specific values in here and nothing outside this file references
+   an sg-* class.
+
+   Loads AFTER thrill.css (it needs the tokens and the typ-* scale) but is
+   independent of components.css and app.css.
+
+       <div class="sg-root">
+         <canvas class="sg-field" aria-hidden="true"></canvas>
+         <div class="sg-mark">
+           <span class="sg-wordmark" role="img" aria-label="Sonar"></span>
+         </div>
+         <main class="sg-card">
+           <p  class="sg-eyebrow typ-label-small">Thrill's Back Office</p>
+           <h1 class="sg-title typ-heading-large">Login to Sonar</h1>
+           <a  class="sg-btn typ-label-medium" href="...">Login with SSO</a>
+           <p  class="sg-foot typ-paragraph-xsmall">SSO only. ...</p>
+         </main>
+       </div>
+
+   Every value is a token or on the scale. Three notes where the reference and
+   the design system disagree, all resolved in the system's favour:
+
+   1. The card sits on surface-2 (#262c3e), not background-secondary (#202433)
+      like .th-auth-card. That is the reference's call and it is the right one:
+      over a busy dot field a two-step separation reads as a smudge, so the
+      card takes the next step up the ladder instead.
+   2. The reference's mint samples at #84fbc5, which is green-1 mixed with
+      about 20% white. Kept as green-1 via --color-button-primary so the one
+      accent stays one accent and the light theme keeps working. If the
+      designer meant the lighter value, override --sg-accent (see below) and
+      both the button and the dot field follow.
+   3. The button is 40px, not 34. It is a full-width auth submit, the case
+      .th-auth-btn already takes as a documented exception to the 34/36 control
+      law (§13); the reference draws it at 38 and 40 is the scale value beside
+      that.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Accent. One knob, read by both this file and signin.js, so the button, the
+   dots and the field glow can never drift apart.
+   -------------------------------------------------------------------------- */
+
+.sg-root {
+  --sg-accent: var(--color-foreground-highlight-1);
+  /* The reference's lighter mint, if that is what was intended:
+     --sg-accent: color-mix(in oklab, var(--color-green-1) 80%, white); */
+  --sg-dot: var(--color-foreground-muted-1);
+}
+
+/* --------------------------------------------------------------------------
+   Field
+   -------------------------------------------------------------------------- */
+
+.sg-root {
+  position: relative;
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: var(--spacing-24);
+  background-color: var(--color-background-primary);
+  color: var(--color-foreground-text);
+  /* A single soft bloom off the top edge, centred. Measured off the reference
+     at green-1 / 5% over base-14 at its strongest, gone by a third of the way
+     down: the effect-glow token at panel scale. It is what stops the field
+     reading as a flat black rectangle with confetti on it. */
+  background-image: radial-gradient(
+    70% 26% at 50% -5%,
+    color-mix(in oklab, var(--color-effect-glow) 5%, transparent) 0%,
+    color-mix(in oklab, var(--color-effect-glow) 2%, transparent) 42%,
+    transparent 100%
+  );
+  background-repeat: no-repeat;
+}
+
+/* The dot grid. Painted rather than made of 1400 elements: one canvas redraws
+   in well under a millisecond, where 1400 animated DOM nodes each carrying
+   their own delay is what makes a login screen drop frames. */
+.sg-field {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   Wordmark. Left 37px, matching the header's logo offset (§9.2), so it sits in
+   the same optical column before and after you sign in.
+   -------------------------------------------------------------------------- */
+
+.sg-mark {
+  position: absolute;
+  top: var(--spacing-40);
+  left: 37px;
+  z-index: 2;
+  display: flex;
+  color: var(--color-foreground-primary);
+}
+
+/* Its own class rather than components.css's .th-logo-wordmark, because this
+   screen deliberately does not load components.css - 122KB of data-grid and
+   drill-modal recipes for a page with one button on it - and because two files
+   defining the same class name is how they drift. Same technique though: the
+   glyphs are painted as a mask so they inherit currentColor and one asset
+   serves every size. /sonar-wordmark.svg is this file's only dependency
+   outside thrill.css; aspect is 74.8176:20. */
+.sg-wordmark {
+  --sg-wordmark-h: 24px;
+  display: block;
+  height: var(--sg-wordmark-h);
+  width: calc(var(--sg-wordmark-h) * 74.8176 / 20);
+  background-color: currentColor;
+  -webkit-mask: url(/sonar-wordmark.svg) no-repeat center / contain;
+          mask: url(/sonar-wordmark.svg) no-repeat center / contain;
+}
+
+@media (max-width: 767px) {
+  .sg-mark {
+    top: var(--spacing-24);
+    left: var(--spacing-24);
+  }
+  .sg-wordmark { --sg-wordmark-h: 20px; }
+}
+
+/* --------------------------------------------------------------------------
+   Card
+   -------------------------------------------------------------------------- */
+
+.sg-card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  max-width: 320px;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  border-radius: var(--radius-40);
+  background: var(--color-surface-2);
+  padding: var(--spacing-64) var(--spacing-48);
+  /* effect-blur-elevation-soft's shadow. The card has to read as floating over
+     the field rather than punched into it, and this is the system's recipe for
+     that; the 32px blur is doing the work, not opacity. */
+  box-shadow: 0 4px 32px rgb(0 0 0 / 0.08);
+}
+
+@media (max-width: 480px) {
+  .sg-card { padding: var(--spacing-40) var(--spacing-24); }
+}
+
+.sg-eyebrow {
+  margin: 0;
+  color: var(--color-foreground-muted-1);
+  font-weight: 500;
+}
+
+.sg-title {
+  margin: var(--spacing-12) 0 0;
+  color: var(--color-foreground-primary);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: calc(1em * var(--display-letter-spacing));
+}
+
+/* --------------------------------------------------------------------------
+   Submit
+   -------------------------------------------------------------------------- */
+
+.sg-btn {
+  display: flex;
+  width: 100%;
+  height: 40px;
+  margin-top: var(--spacing-32);
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-10);
+  border: none;
+  /* Fully rounded at this height, as the reference draws it. radius-40 is the
+     scale's "fully rounded" step for a 28-44px control. */
+  border-radius: var(--radius-40);
+  background: var(--color-button-primary);
+  color: var(--color-button-primary-foreground);
+  font-weight: 800;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: scale var(--dur-house) var(--ease-in-out),
+              filter var(--dur-house) var(--ease-in-out);
+  outline-style: solid;
+  outline-width: 2px;
+  outline-offset: 2px;
+  outline-color: transparent;
+}
+.sg-btn:hover {
+  scale: 1.03;
+  filter: brightness(1.08);
+  text-decoration: none;
+}
+.sg-btn:active { scale: 1; }
+.sg-btn:focus-visible { outline-color: var(--color-foreground-primary); }
+
+.sg-btn svg { width: 18px; height: 18px; }
+
+/* While the redirect to the identity provider is in flight. */
+.sg-btn.is-busy {
+  pointer-events: none;
+  filter: none;
+  scale: 1;
+}
+.sg-btn.is-busy .sg-spin {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  border: 2px solid color-mix(in oklab, var(--color-button-primary-foreground) 30%, transparent);
+  border-top-color: var(--color-button-primary-foreground);
+  animation: sg-spin 0.8s linear infinite;
+}
+
+@keyframes sg-spin { to { transform: rotate(360deg); } }
+
+/* --------------------------------------------------------------------------
+   Footnote
+   -------------------------------------------------------------------------- */
+
+.sg-foot {
+  margin: var(--spacing-24) 0 0;
+  max-width: 34ch;
+  color: var(--color-foreground-muted-2);
+}
+.sg-foot strong {
+  color: var(--color-foreground-muted-3);
+  font-weight: 700;
+}
+
+/* An error handed back by the identity provider, on .th-error's recipe: the
+   hue at 6%, a 20% border, full-strength text. */
+.sg-error {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-8);
+  margin-top: var(--spacing-24);
+  border-radius: var(--radius-24);
+  border: 1px solid color-mix(in oklab, var(--color-badge-red) 20%, transparent);
+  background: var(--color-badge-red-background);
+  padding: var(--spacing-12) var(--spacing-16);
+  color: var(--color-badge-red);
+  font-weight: 600;
+}
+.sg-error::before, .sg-error::after { content: none; }
+
+/* A neutral note, not a problem: "you have been signed out". Same geometry as
+   .sg-error so the card does not change shape depending on which one shows,
+   but on the muted palette instead of the red one, because a successful
+   sign-out is not a failure and should not be dressed as one. */
+.sg-note {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-8);
+  margin-top: var(--spacing-24);
+  border-radius: var(--radius-24);
+  border: 1px solid color-mix(in oklab, var(--color-base-8) 20%, transparent);
+  background: color-mix(in oklab, var(--color-base-8) 8%, transparent);
+  padding: var(--spacing-12) var(--spacing-16);
+  color: var(--color-foreground-muted-1);
+  font-weight: 600;
+}
+.sg-note::before, .sg-note::after { content: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sg-btn:hover { scale: 1; }
+}

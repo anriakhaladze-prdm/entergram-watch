@@ -1,191 +1,1059 @@
-/* Thrill backoffice design system, the subset this dashboard uses.
-   Token names match the system so components port straight across. */
-:root {
-  --font-oxanium: Oxanium, sans-serif;
-  --color-white: #fff;
-  --color-base-8: #858fa6;  --color-base-9: #525b70;  --color-base-10: #3c4357;
-  --color-base-11: #262c3e; --color-base-12: #242837; --color-base-13: #202433;
-  --color-base-14: #1b1d29; --color-base-15: #a0acc7; --color-base-16: #2d354c;
-  --color-green-1: #5cffc1; --color-red-1: #ff6b6b; --color-yellow-1: #ffd966;
+/* ==========================================================================
+   Thrill design system for LB Payout - layer 1 of 3
 
-  --color-background-primary: var(--color-base-14);
-  --color-background-secondary: var(--color-base-13);
-  --color-list-background-secondary: #232839;
-  --color-floating-surface: #293146;
-  --color-floating-surface-border: #858fa64d;
-  --color-control-secondary: var(--color-base-12);
-  --color-control-secondary-active: var(--color-base-16);
-  --color-foreground-text: var(--color-white);
-  --color-foreground-muted-1: var(--color-base-15);
-  --color-foreground-muted-3: var(--color-base-8);
-  --color-list-divider: #ffffff14;
+     thrill.css      tokens, the typ-* scale, bespoke utilities, base reset
+     components.css  the th-* component vocabulary (verbatim from Sonar)
+     app.css         the pieces only this tool has (upload, template editor)
 
-  --color-badge-gray: #99a5bf;   --color-badge-gray-bg: #99a5bf0f;
-  --color-badge-green: #5cffc1;  --color-badge-green-bg: color-mix(in oklab, #5cffc1 6%, transparent);
-  --color-badge-red: #ff6b6b;    --color-badge-red-bg: color-mix(in oklab, #ff6b6b 6%, transparent);
-  --color-badge-orange: #f96;    --color-badge-orange-bg: color-mix(in oklab, #f96 6%, transparent);
-  --color-badge-yellow: #ffd966; --color-badge-yellow-bg: color-mix(in oklab, #ffd966 6%, transparent);
-  --color-badge-purple: #a666ff; --color-badge-purple-bg: color-mix(in oklab, #a666ff 6%, transparent);
-  --color-badge-peach: #f7c8c1;  --color-badge-peach-bg: color-mix(in oklab, #f7c8c1 6%, transparent);
-  --color-badge-blue: #00e5ff;   --color-badge-blue-bg: color-mix(in oklab, #00e5ff 6%, transparent);
+   Everything from `1. Oxanium` down is carried over from the Sonar app's
+   Tailwind entry point (sonarapp/src/thrill.css) with the three Tailwind
+   directives stripped and `@theme` rewritten as `:root`, so the two products
+   resolve to byte-identical token values. Do not hand-edit those blocks -
+   re-run the extraction against Sonar instead.
 
-  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+   The block below replaces what Tailwind's preflight used to provide. It is
+   the only part of this file that is ours.
+
+   Put .thrill-dark-theme on <body>, never on <html>.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   0. Base reset (stands in for Tailwind preflight)
+   -------------------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border: 0 solid;
 }
 
-* { box-sizing: border-box; }
-html, body, #__next { height: 100%; margin: 0; }
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  tab-size: 4;
+}
+
 body {
+  margin: 0;
+  min-height: 100%;
+  line-height: 1.5;
+  /* The page slab is the darkest value in the palette; every functional region
+     is a lighter plane stacked on it. */
   background: var(--color-background-primary);
   color: var(--color-foreground-text);
   font-family: var(--font-oxanium);
+  font-size: 13px;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* cap-height trimmed type scale */
-.typ-display-xsmall, .typ-heading-medium, .typ-label-large, .typ-label-medium,
-.typ-label-small, .typ-label-xsmall, .typ-label-xxsmall { line-height: 1.2; display: block; }
-.typ-display-xsmall { font-size: 24px; }
-.typ-heading-medium { font-size: 18px; }
-.typ-label-large { font-size: 14px; }
-.typ-label-medium { font-size: 13px; }
-.typ-label-small { font-size: 12px; }
-.typ-label-xsmall { font-size: 11px; }
-.typ-label-xxsmall { font-size: 10px; }
-.typ-display-xsmall::before, .typ-heading-medium::before, .typ-label-large::before,
-.typ-label-medium::before, .typ-label-small::before, .typ-label-xsmall::before,
-.typ-label-xxsmall::before { content: ""; display: table; margin-bottom: -0.20em; }
-.typ-display-xsmall::after, .typ-heading-medium::after, .typ-label-large::after,
-.typ-label-medium::after, .typ-label-small::after, .typ-label-xsmall::after,
-.typ-label-xxsmall::after { content: ""; display: table; margin-top: -0.31em; }
-
-/* ---- shell: three absolutely positioned regions ---- */
-.shell { position: relative; height: 100%; width: 100%; }
-.header {
-  position: absolute; inset: 0 0 auto 0; height: 92px;
-  display: flex; align-items: center; gap: 24px; padding: 0 32px;
-}
-.rail {
-  position: absolute; top: 92px; bottom: 0; left: 0; width: 136px;
-  display: flex; flex-direction: column; gap: 28px; padding: 8px 32px 24px;
-}
-.main { position: absolute; top: 92px; right: 0; bottom: 0; left: 136px;
-  display: flex; padding: 0 24px 24px 0; min-height: 0; min-width: 0; }
-
-.card {
-  flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column;
-  border-radius: 32px; background: var(--color-background-secondary);
-  overflow: hidden; padding: 24px 0;
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
 }
 
-/* ---- rail ---- */
-.rail-item {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 6px; height: 61px; border-radius: 12px; cursor: pointer;
-  color: var(--color-foreground-muted-3); background: transparent;
-  border: 0; font-family: inherit; transition: all .15s var(--ease);
-}
-.rail-item[data-active="true"] {
-  color: var(--color-green-1); border-radius: 14px;
-  background: color-mix(in oklab, var(--color-green-1) 6%, transparent);
-}
-.rail-count { font-weight: 800; font-size: 16px; line-height: 1; }
-.rail-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; text-align: center; }
+p, figure, blockquote, dl, dd, pre { margin: 0; }
 
-/* ---- toolbar ---- */
-.toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0 32px 16px; }
-.chip {
-  height: 34px; border-radius: 24px; padding: 0 16px; display: inline-flex;
-  align-items: center; gap: 6px; cursor: pointer; border: 1px solid transparent;
-  background: var(--color-control-secondary); color: var(--color-foreground-muted-1);
-  font-family: inherit; font-size: 12px; font-weight: 600; transition: all .2s var(--ease);
-}
-.chip:hover { background: var(--color-control-secondary-active); }
-.chip[data-on="true"] {
-  background: color-mix(in oklab, var(--color-green-1) 6%, transparent);
-  border-color: color-mix(in oklab, var(--color-green-1) 20%, transparent);
-  color: var(--color-green-1);
-}
-.search {
-  height: 34px; border-radius: 24px; padding: 0 16px; min-width: 220px;
-  background: var(--color-control-secondary); border: 1px solid transparent;
-  color: var(--color-foreground-text); font-family: inherit; font-size: 13px;
-}
-.search::placeholder { color: var(--color-foreground-muted-3); }
-.search:focus { outline: none; border-color: color-mix(in oklab, var(--color-green-1) 20%, transparent); }
-
-/* ---- grid ---- */
-.scroller { flex: 1; min-height: 0; min-width: 0; overflow: auto; margin: 0 16px; scrollbar-gutter: stable; }
-.grid {
-  display: grid; gap: 1px 0;
-  grid-template-columns: 190px 140px 180px 84px 104px 104px 84px 92px minmax(230px, 1fr);
-}
-.head { position: sticky; top: 0; z-index: 4; grid-column: 1 / -1; display: grid;
-  grid-template-columns: subgrid; height: 31px; align-items: center; }
-.head > div {
-  height: 100%; display: flex; align-items: center; padding: 0 32px 0 20px;
-  background: var(--color-background-secondary); color: var(--color-foreground-muted-1);
-  font-size: 12px; font-weight: 500; white-space: nowrap; user-select: none;
-}
-.head > div[data-sortable="true"] { cursor: pointer; }
-.head .sort { margin-left: 8px; opacity: .45; font-size: 10px; }
-.row { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; height: 54px; align-items: center; }
-.row > div { height: 100%; background: var(--color-background-secondary); overflow: hidden; }
-.row > div > .cell {
-  height: 100%; display: flex; align-items: center; padding: 0 32px 0 20px;
-  background: var(--color-list-background-secondary);
-  font-size: 13px; font-weight: 600; white-space: nowrap;
-}
-.row > div:first-child > .cell { border-radius: 16px 0 0 16px; }
-.row > div:last-child > .cell { border-radius: 0 16px 16px 0; }
-.row:hover > div > .cell { background: var(--color-base-12); }
-.muted { color: var(--color-foreground-muted-3); font-weight: 500; }
-.num { font-variant-numeric: tabular-nums; }
-.truncate { overflow: hidden; text-overflow: ellipsis; display: block; min-width: 0; }
-
-/* ---- badges ---- */
-.badge {
-  display: inline-flex; height: 22px; align-items: center; border-radius: 29px;
-  padding: 0 8px; font-size: 12px; font-weight: 700; text-transform: uppercase;
-  white-space: nowrap; letter-spacing: .01em;
+ol, ul, menu {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-/* ---- kpi tiles ---- */
-.kpis { display: flex; gap: 8px; padding: 0 32px 16px; flex-wrap: wrap; }
-.kpi {
-  border-radius: 24px; padding: 12px 18px; min-width: 132px; cursor: pointer;
-  background: var(--color-control-secondary); border: 1px solid transparent;
-  transition: all .2s var(--ease); font-family: inherit; text-align: left;
+a {
+  color: inherit;
+  text-decoration: inherit;
 }
-.kpi:hover { background: var(--color-control-secondary-active); }
-.kpi[data-on="true"] { border-color: color-mix(in oklab, var(--color-green-1) 20%, transparent); }
-.kpi-value { font-size: 24px; font-weight: 800; line-height: 1.2; font-variant-numeric: tabular-nums; }
-.kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase;
-  color: var(--color-foreground-muted-3); margin-top: 6px; letter-spacing: .02em; }
 
-/* ---- scrollbars, blended ---- */
-*::-webkit-scrollbar { width: 8px; height: 8px; }
-*::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: var(--color-base-10); border-radius: 4px; }
-*::-webkit-scrollbar-thumb:hover { background: var(--color-base-9); }
+b, strong { font-weight: bolder; }
 
-.empty { padding: 48px 32px; color: var(--color-foreground-muted-3); font-size: 13px; }
-a.plain { color: inherit; text-decoration: none; }
-a.plain:hover { color: var(--color-green-1); }
-
-/* ---- sign-in gate ---- */
-.gate { height: 100%; display: flex; align-items: center; justify-content: center; }
-.gate-card {
-  border-radius: 32px; background: var(--color-background-secondary);
-  padding: 48px 56px; text-align: center; min-width: 360px;
+code, kbd, samp, pre {
+  font-family: var(--font-mono);
+  font-size: 1em;
 }
-.gate-title { font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; }
-.gate-sub { font-size: 13px; color: var(--color-foreground-muted-3); margin-top: 8px; }
-.gate-btn {
-  margin-top: 32px; height: 34px; border-radius: 24px; padding: 0 24px; cursor: pointer;
-  border: 1px solid color-mix(in oklab, var(--color-green-1) 20%, transparent);
-  background: color-mix(in oklab, var(--color-green-1) 6%, transparent);
-  color: var(--color-green-1); font-family: inherit; font-size: 13px; font-weight: 800;
-  text-transform: uppercase; transition: all .3s var(--ease);
+
+small { font-size: 80%; }
+sub, sup { font-size: 75%; line-height: 0; position: relative; vertical-align: baseline; }
+sub { bottom: -0.25em; }
+sup { top: -0.5em; }
+
+table {
+  border-collapse: collapse;
+  border-color: inherit;
+  text-indent: 0;
 }
-.gate-btn:hover { background: color-mix(in oklab, var(--color-green-1) 12%, transparent); }
-.gate-note { font-size: 11px; color: var(--color-foreground-muted-3); margin-top: 16px; }
+
+button, input, optgroup, select, textarea {
+  font: inherit;
+  font-feature-settings: inherit;
+  font-variation-settings: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+button, [type='button'], [type='reset'], [type='submit'] {
+  appearance: button;
+  background-color: transparent;
+  background-image: none;
+}
+
+:-moz-focusring { outline: auto; }
+:-moz-ui-invalid { box-shadow: none; }
+
+progress { vertical-align: baseline; }
+
+::-webkit-inner-spin-button, ::-webkit-outer-spin-button { height: auto; }
+[type='search'] { appearance: textfield; outline-offset: -2px; }
+::-webkit-search-decoration { -webkit-appearance: none; }
+::-webkit-file-upload-button { -webkit-appearance: button; font: inherit; }
+
+summary { display: list-item; }
+
+/* Filled 24x24 paths, currentColor, sized by their own width/height attribute. */
+img, svg, video, canvas, audio, iframe, embed, object {
+  display: block;
+  vertical-align: middle;
+}
+img, video { max-width: 100%; height: auto; }
+
+[hidden]:where(:not([hidden='until-found'])) { display: none !important; }
+
+textarea { resize: vertical; }
+
+::placeholder { opacity: 1; color: var(--color-foreground-muted-1); }
+
+/* No focus ring from the UA. Every interactive element in the system carries
+   .focusable (or a component rule that reproduces it), which keeps a 2px
+   transparent outline reserved so focus never shifts a 34px control row. */
+:focus-visible { outline: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* The toast and the drill modal both animate `th-rise`, which Sonar references
+   but never declares. Declared here so the animation actually plays. */
+@keyframes th-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* --------------------------------------------------------------------------
+   Everything below this line is Sonar's, unmodified.
+   -------------------------------------------------------------------------- */
+
+/* ==========================================================================
+   Sonar x Thrill design system - Tailwind v4 entry point
+
+   Build:  npm run css        (one-shot, writes public/thrill.css)
+           npm run css:watch  (rebuild on change)
+
+   public/thrill.css is committed, so `node server.js` needs no build step.
+   Rebuild whenever you add a utility class to index.html, sonar.js or
+   sonar-ui.js - Tailwind only emits the classes it can see.
+
+   Load order in index.html:  thrill.css  ->  sonar.css
+   Put .thrill-dark-theme on <body>, never on <html>.
+   ========================================================================== */
+
+
+
+/* --------------------------------------------------------------------------
+   1. Oxanium, variable, weight axis 200-800
+   -------------------------------------------------------------------------- */
+@font-face {
+  font-family: 'Oxanium';
+  src: url('/Oxanium.ttf') format('truetype');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* --------------------------------------------------------------------------
+   2. Primitives, scales, breakpoints
+
+   --spacing: 1px is what makes the scale literal, exactly as the spec
+   requires: p-12 is 12px, top-92 is 92px, size-44 is 44px. Named --spacing-*
+   keys win for the values the system calls out by name.
+
+   The semantic colours are declared here too, with their DARK values, so that
+   Tailwind emits bg-* / text-* / border-* utilities for them. The theme
+   classes in section 3 re-point the same custom properties at runtime, which
+   is why no component ever branches on theme.
+   -------------------------------------------------------------------------- */
+:root {
+  --spacing: 1px;
+
+
+  /* typeface */
+  --font-oxanium: Oxanium, sans-serif;
+  --display-letter-spacing: -0.02;
+  /* breakpoints */
+  --breakpoint-sm: 768px;
+  --breakpoint-md: 1024px;
+  --breakpoint-lg: 1512px;
+  /* motion */
+  --default-transition-duration: 0.15s;
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  /* motion, named as in the KYT app so the component layer drops straight in */
+  --dur-fill: 150ms;
+  --dur-chip: 200ms;
+  --dur-house: 300ms;
+  --font-mono: 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
+  /* spacing (literal px) */
+  --spacing-0: 0px;
+  --spacing-2: 2px;
+  --spacing-4: 4px;
+  --spacing-6: 6px;
+  --spacing-8: 8px;
+  --spacing-10: 10px;
+  --spacing-12: 12px;
+  --spacing-14: 14px;
+  --spacing-16: 16px;
+  --spacing-18: 18px;
+  --spacing-20: 20px;
+  --spacing-24: 24px;
+  --spacing-32: 32px;
+  --spacing-40: 40px;
+  --spacing-48: 48px;
+  --spacing-56: 56px;
+  --spacing-64: 64px;
+  /* radius */
+  --radius-2: 2px;
+  --radius-4: 4px;
+  --radius-6: 6px;
+  --radius-8: 8px;
+  --radius-10: 10px;
+  --radius-12: 12px;
+  --radius-14: 14px;
+  --radius-16: 16px;
+  --radius-18: 18px;
+  --radius-20: 20px;
+  --radius-24: 24px;
+  --radius-32: 32px;
+  --radius-40: 40px;
+  --radius-64: 64px;
+  /* primitive colours */
+  --color-white: #fff;
+  --color-black: #000;
+  --color-base-1: #f4f6f9;
+  --color-base-2: #f5f6f8;
+  --color-base-3: #e3e9ef;
+  --color-base-4: #eaeef3;
+  --color-base-5: #e5e8f0;
+  --color-base-6: #dde4ec;
+  --color-base-7: #b8c2da;
+  --color-base-8: #858fa6;
+  --color-base-9: #525b70;
+  --color-base-10: #3c4357;
+  --color-base-11: #262c3e;
+  --color-base-12: #242837;
+  --color-base-13: #202433;
+  --color-base-14: #1b1d29;
+  --color-base-15: #a0acc7;
+  --color-base-16: #2d354c;
+  --color-base-17: #293146;
+  --color-green-1: #5cffc1;
+  --color-green-2: #2ed2a3;
+  --color-green-3: #00a685;
+  --color-red-1: #ff6b6b;
+  --color-red-2: #de1135;
+  --color-red-3: #a80e2a;
+  --color-yellow-1: #ffd966;
+  --color-yellow-2: #f6bc2f;
+  --color-yellow-3: #d8a000;
+  --color-purple-1: #7c79ff;
+  --color-purple-2: #5956ff;
+  --color-purple-3: #4839d1;
+  /* scrollbar (section 18) */
+  --scrollbar-size: 8px;
+  --scrollbar-radius: 4px;
+  --scrollbar-inset: 2px;
+
+  /* ---- semantic tokens, dark values ---- */
+  /* background */
+  --color-background-overlay: var(--color-base-11);
+  --color-background-primary: var(--color-base-14);
+  --color-background-secondary: var(--color-base-13);
+  /* surface */
+  --color-surface-1: var(--color-base-13);
+  --color-surface-2: var(--color-base-11);
+  --color-surface-3: var(--color-base-10);
+  --color-surface-4: var(--color-base-8);
+  --color-surface-5: var(--color-base-8);
+  --color-surface-6: var(--color-base-11);
+  --color-surface-8: var(--color-base-14);
+  --color-surface-backdrop: var(--color-base-14);
+  --color-surface-control: var(--color-base-11);
+  --color-surface-dimmed: var(--color-white);
+  --color-surface-drawer: var(--color-base-11);
+  --color-surface-highlighted: var(--color-green-3);
+  --color-surface-interactive: var(--color-base-10);
+  --color-surface-interactive-2: var(--color-base-10);
+  --color-surface-interactive-3: var(--color-base-10);
+  --color-surface-interactive-4: var(--color-white);
+  --color-surface-interactive-negative: var(--color-red-1);
+  --color-surface-notification: var(--color-red-1);
+  --color-surface-selected-primary: var(--color-green-1);
+  --color-surface-selected-secondary: var(--color-green-1);
+  --color-surface-stats: var(--color-base-10);
+  /* foreground */
+  --color-foreground-border-2: var(--color-base-7);
+  --color-foreground-dark: var(--color-base-14);
+  --color-foreground-highlight-1: var(--color-green-1);
+  --color-foreground-highlight-2: var(--color-yellow-1);
+  --color-foreground-light: var(--color-white);
+  --color-foreground-muted-1: var(--color-base-8);
+  --color-foreground-muted-2: var(--color-base-9);
+  --color-foreground-muted-3: var(--color-base-15);
+  --color-foreground-primary: var(--color-white);
+  --color-foreground-secondary: var(--color-white);
+  --color-foreground-selected-primary: var(--color-base-14);
+  --color-foreground-selected-secondary: var(--color-green-1);
+  --color-foreground-tertiary: var(--color-white);
+  --color-foreground-text: var(--color-base-6);
+  /* border */
+  --color-border: var(--color-base-11);
+  /* control */
+  --color-control-primary: var(--color-base-11);
+  --color-control-primary-active: var(--color-base-10);
+  --color-control-primary-active-solid: #2c3040;
+  --color-control-primary-foreground: var(--color-base-15);
+  --color-control-primary-foreground-active: var(--color-white);
+  --color-control-primary-solid: #222636;
+  --color-control-secondary: var(--color-base-11);
+  --color-control-secondary-active: var(--color-base-10);
+  --color-control-secondary-active-solid: #313749;
+  --color-control-secondary-foreground: var(--color-base-7);
+  --color-control-secondary-foreground-active: var(--color-white);
+  /* button */
+  --color-button-background-default: var(--color-base-8);
+  --color-button-border-gradient-end: var(--color-white);
+  --color-button-border-gradient-start: var(--color-white);
+  --color-button-primary: var(--color-green-1);
+  --color-button-primary-foreground: var(--color-base-14);
+  --color-button-secondary: var(--color-base-8);
+  --color-button-secondary-foreground: var(--color-white);
+  /* dialog-button */
+  --color-dialog-button-default-background: var(--color-base-8);
+  --color-dialog-button-default-foreground: var(--color-white);
+  --color-dialog-button-default-outline: var(--color-base-8);
+  --color-dialog-button-negative-background: var(--color-red-1);
+  --color-dialog-button-negative-foreground: var(--color-red-1);
+  --color-dialog-button-negative-outline: var(--color-red-1);
+  --color-dialog-button-positive-background: var(--color-green-1);
+  --color-dialog-button-positive-foreground: var(--color-green-1);
+  --color-dialog-button-positive-outline: var(--color-green-1);
+  /* positive */
+  --color-positive: var(--color-green-2);
+  /* warning */
+  --color-warning: var(--color-yellow-2);
+  /* negative */
+  --color-negative: var(--color-red-1);
+  /* neutral */
+  --color-neutral: var(--color-purple-2);
+  /* badge */
+  --color-badge-blue: #00e5ff;
+  --color-badge-blue-background: oklab(84.4151% -.127039 -.0712476/.06);
+  --color-badge-gray: #99a5bf;
+  --color-badge-gray-background: #99a5bf0f;
+  --color-badge-green: var(--color-green-1);
+  --color-badge-green-background: color-mix(in oklab, var(--color-green-1) 6%, transparent);
+  --color-badge-orange: #f96;
+  --color-badge-orange-background: oklab(77.8889% .095769 .101156/.06);
+  --color-badge-peach: #f7c8c1;
+  --color-badge-peach-background: oklab(87.1872% .0482323 .0257208/.06);
+  --color-badge-purple: #a666ff;
+  --color-badge-purple-background: oklab(65.2404% .107917 -.190179/.06);
+  --color-badge-red: var(--color-red-1);
+  --color-badge-red-background: color-mix(in oklab, var(--color-red-1) 6%, transparent);
+  --color-badge-yellow: var(--color-yellow-1);
+  --color-badge-yellow-background: color-mix(in oklab, var(--color-yellow-1) 6%, transparent);
+  /* floating */
+  --color-floating-surface: #293146;
+  --color-floating-surface-border: #858fa64d;
+  /* menu */
+  --color-menu-background: var(--color-base-16);
+  --color-menu-border: var(--color-base-8);
+  /* tooltip */
+  --color-tooltip-background: var(--color-floating-surface);
+  --color-tooltip-border: var(--color-floating-surface-border);
+  /* backdrop */
+  --color-backdrop-mobile: var(--color-base-13);
+  /* filter */
+  --color-filter-background: var(--color-base-11);
+  --color-filter-background-active: var(--color-base-10);
+  --color-filter-border: var(--color-base-10);
+  --color-filter-border-selected: var(--color-green-1);
+  --color-filter-container: var(--color-base-11);
+  /* list */
+  --color-list-background-orange: #3b2e32;
+  --color-list-background-red: #382e3e;
+  --color-list-background-secondary: #232839;
+  --color-list-background-yellow: #32343c;
+  --color-list-divider: var(--color-base-8);
+  /* effect */
+  --color-effect-glassmorphism: var(--color-purple-2);
+  --color-effect-glow: var(--color-green-1);
+  --color-effect-glow-negative: var(--color-red-2);
+  --color-effect-glow-soft: var(--color-green-1);
+  /* glow */
+  --color-glow-notification: var(--color-red-2);
+  /* gradient */
+  --color-gradient-green-end: var(--color-green-1);
+  --color-gradient-green-start: var(--color-green-1);
+  --color-gradient-persist-end: var(--color-base-14);
+  --color-gradient-persist-secondary-end: var(--color-base-13);
+  --color-gradient-persist-secondary-start: var(--color-base-13);
+  --color-gradient-persist-start: var(--color-base-14);
+  --color-gradient-primary-end: var(--color-base-14);
+  --color-gradient-primary-start: var(--color-base-14);
+  --color-gradient-secondary-end: var(--color-base-13);
+  --color-gradient-secondary-start: var(--color-base-13);
+  /* avatar */
+  --color-avatar-background: var(--color-purple-2);
+  /* skeleton */
+  --color-skeleton-foreground: var(--color-base-8);
+  /* field */
+  --color-field-background: var(--color-black);
+  /* widget */
+  --color-widget-background-mobile: #f7f8f94d;
+  --color-widget-stroke-mobile: var(--color-base-10);
+  /* bo-menu */
+  --color-bo-menu-highlighted-background: #858fa60d;
+  /* scrollbar */
+  --color-scrollbar-track: transparent;
+  --color-scrollbar-thumb: color-mix(in oklab, var(--color-base-8) 14%, transparent);
+  --color-scrollbar-thumb-hover: color-mix(in oklab, var(--color-base-8) 24%, transparent);
+  --color-scrollbar-thumb-active: color-mix(in oklab, var(--color-base-8) 55%, transparent);
+  /* The 6% rule, expressed once. In dark theme a selected surface is the
+     accent at 6% alpha; in light theme the same token becomes a solid fill
+     with white text (section 6, "key inversions"). Components reference
+     --accent-fill so neither case is ever hand-coded. */
+  --accent-fill: color-mix(in oklab, var(--color-surface-selected-secondary) 6%, transparent);
+  --accent-fill-strong: color-mix(in oklab, var(--color-surface-selected-secondary) 10%, transparent);
+  --accent-border: color-mix(in oklab, var(--color-filter-border-selected) 20%, transparent);
+  --accent-text: var(--color-foreground-selected-secondary);
+  /* The nav label sits outside the tile, so it needs a colour that reads on
+     the bare field in both themes. */
+  --accent-on-field: var(--color-foreground-highlight-1);
+
+}
+
+/* --------------------------------------------------------------------------
+   3. Theme classes
+   -------------------------------------------------------------------------- */
+.thrill-dark-theme {
+  /* background */
+  --color-background-overlay: var(--color-base-11);
+  --color-background-primary: var(--color-base-14);
+  --color-background-secondary: var(--color-base-13);
+  /* surface */
+  --color-surface-1: var(--color-base-13);
+  --color-surface-2: var(--color-base-11);
+  --color-surface-3: var(--color-base-10);
+  --color-surface-4: var(--color-base-8);
+  --color-surface-5: var(--color-base-8);
+  --color-surface-6: var(--color-base-11);
+  --color-surface-8: var(--color-base-14);
+  --color-surface-backdrop: var(--color-base-14);
+  --color-surface-control: var(--color-base-11);
+  --color-surface-dimmed: var(--color-white);
+  --color-surface-drawer: var(--color-base-11);
+  --color-surface-highlighted: var(--color-green-3);
+  --color-surface-interactive: var(--color-base-10);
+  --color-surface-interactive-2: var(--color-base-10);
+  --color-surface-interactive-3: var(--color-base-10);
+  --color-surface-interactive-4: var(--color-white);
+  --color-surface-interactive-negative: var(--color-red-1);
+  --color-surface-notification: var(--color-red-1);
+  --color-surface-selected-primary: var(--color-green-1);
+  --color-surface-selected-secondary: var(--color-green-1);
+  --color-surface-stats: var(--color-base-10);
+  /* foreground */
+  --color-foreground-border-2: var(--color-base-7);
+  --color-foreground-dark: var(--color-base-14);
+  --color-foreground-highlight-1: var(--color-green-1);
+  --color-foreground-highlight-2: var(--color-yellow-1);
+  --color-foreground-light: var(--color-white);
+  --color-foreground-muted-1: var(--color-base-8);
+  --color-foreground-muted-2: var(--color-base-9);
+  --color-foreground-muted-3: var(--color-base-15);
+  --color-foreground-primary: var(--color-white);
+  --color-foreground-secondary: var(--color-white);
+  --color-foreground-selected-primary: var(--color-base-14);
+  --color-foreground-selected-secondary: var(--color-green-1);
+  --color-foreground-tertiary: var(--color-white);
+  --color-foreground-text: var(--color-base-6);
+  /* border */
+  --color-border: var(--color-base-11);
+  /* control */
+  --color-control-primary: var(--color-base-11);
+  --color-control-primary-active: var(--color-base-10);
+  --color-control-primary-active-solid: #2c3040;
+  --color-control-primary-foreground: var(--color-base-15);
+  --color-control-primary-foreground-active: var(--color-white);
+  --color-control-primary-solid: #222636;
+  --color-control-secondary: var(--color-base-11);
+  --color-control-secondary-active: var(--color-base-10);
+  --color-control-secondary-active-solid: #313749;
+  --color-control-secondary-foreground: var(--color-base-7);
+  --color-control-secondary-foreground-active: var(--color-white);
+  /* button */
+  --color-button-background-default: var(--color-base-8);
+  --color-button-border-gradient-end: var(--color-white);
+  --color-button-border-gradient-start: var(--color-white);
+  --color-button-primary: var(--color-green-1);
+  --color-button-primary-foreground: var(--color-base-14);
+  --color-button-secondary: var(--color-base-8);
+  --color-button-secondary-foreground: var(--color-white);
+  /* dialog-button */
+  --color-dialog-button-default-background: var(--color-base-8);
+  --color-dialog-button-default-foreground: var(--color-white);
+  --color-dialog-button-default-outline: var(--color-base-8);
+  --color-dialog-button-negative-background: var(--color-red-1);
+  --color-dialog-button-negative-foreground: var(--color-red-1);
+  --color-dialog-button-negative-outline: var(--color-red-1);
+  --color-dialog-button-positive-background: var(--color-green-1);
+  --color-dialog-button-positive-foreground: var(--color-green-1);
+  --color-dialog-button-positive-outline: var(--color-green-1);
+  /* positive */
+  --color-positive: var(--color-green-2);
+  /* warning */
+  --color-warning: var(--color-yellow-2);
+  /* negative */
+  --color-negative: var(--color-red-1);
+  /* neutral */
+  --color-neutral: var(--color-purple-2);
+  /* badge */
+  --color-badge-blue: #00e5ff;
+  --color-badge-blue-background: oklab(84.4151% -.127039 -.0712476/.06);
+  --color-badge-gray: #99a5bf;
+  --color-badge-gray-background: #99a5bf0f;
+  --color-badge-green: var(--color-green-1);
+  --color-badge-green-background: color-mix(in oklab, var(--color-green-1) 6%, transparent);
+  --color-badge-orange: #f96;
+  --color-badge-orange-background: oklab(77.8889% .095769 .101156/.06);
+  --color-badge-peach: #f7c8c1;
+  --color-badge-peach-background: oklab(87.1872% .0482323 .0257208/.06);
+  --color-badge-purple: #a666ff;
+  --color-badge-purple-background: oklab(65.2404% .107917 -.190179/.06);
+  --color-badge-red: var(--color-red-1);
+  --color-badge-red-background: color-mix(in oklab, var(--color-red-1) 6%, transparent);
+  --color-badge-yellow: var(--color-yellow-1);
+  --color-badge-yellow-background: color-mix(in oklab, var(--color-yellow-1) 6%, transparent);
+  /* floating */
+  --color-floating-surface: #293146;
+  --color-floating-surface-border: #858fa64d;
+  /* menu */
+  --color-menu-background: var(--color-base-16);
+  --color-menu-border: var(--color-base-8);
+  /* tooltip */
+  --color-tooltip-background: var(--color-floating-surface);
+  --color-tooltip-border: var(--color-floating-surface-border);
+  /* backdrop */
+  --color-backdrop-mobile: var(--color-base-13);
+  /* filter */
+  --color-filter-background: var(--color-base-11);
+  --color-filter-background-active: var(--color-base-10);
+  --color-filter-border: var(--color-base-10);
+  --color-filter-border-selected: var(--color-green-1);
+  --color-filter-container: var(--color-base-11);
+  /* list */
+  --color-list-background-orange: #3b2e32;
+  --color-list-background-red: #382e3e;
+  --color-list-background-secondary: #232839;
+  --color-list-background-yellow: #32343c;
+  --color-list-divider: var(--color-base-8);
+  /* effect */
+  --color-effect-glassmorphism: var(--color-purple-2);
+  --color-effect-glow: var(--color-green-1);
+  --color-effect-glow-negative: var(--color-red-2);
+  --color-effect-glow-soft: var(--color-green-1);
+  /* glow */
+  --color-glow-notification: var(--color-red-2);
+  /* gradient */
+  --color-gradient-green-end: var(--color-green-1);
+  --color-gradient-green-start: var(--color-green-1);
+  --color-gradient-persist-end: var(--color-base-14);
+  --color-gradient-persist-secondary-end: var(--color-base-13);
+  --color-gradient-persist-secondary-start: var(--color-base-13);
+  --color-gradient-persist-start: var(--color-base-14);
+  --color-gradient-primary-end: var(--color-base-14);
+  --color-gradient-primary-start: var(--color-base-14);
+  --color-gradient-secondary-end: var(--color-base-13);
+  --color-gradient-secondary-start: var(--color-base-13);
+  /* avatar */
+  --color-avatar-background: var(--color-purple-2);
+  /* skeleton */
+  --color-skeleton-foreground: var(--color-base-8);
+  /* field */
+  --color-field-background: var(--color-black);
+  /* widget */
+  --color-widget-background-mobile: #f7f8f94d;
+  --color-widget-stroke-mobile: var(--color-base-10);
+  /* bo-menu */
+  --color-bo-menu-highlighted-background: #858fa60d;
+  /* scrollbar */
+  --color-scrollbar-track: transparent;
+  --color-scrollbar-thumb: color-mix(in oklab, var(--color-base-8) 14%, transparent);
+  --color-scrollbar-thumb-hover: color-mix(in oklab, var(--color-base-8) 24%, transparent);
+  --color-scrollbar-thumb-active: color-mix(in oklab, var(--color-base-8) 55%, transparent);
+  /* The 6% rule, expressed once. In dark theme a selected surface is the
+     accent at 6% alpha; in light theme the same token becomes a solid fill
+     with white text (section 6, "key inversions"). Components reference
+     --accent-fill so neither case is ever hand-coded. */
+  --accent-fill: color-mix(in oklab, var(--color-surface-selected-secondary) 6%, transparent);
+  --accent-fill-strong: color-mix(in oklab, var(--color-surface-selected-secondary) 10%, transparent);
+  --accent-border: color-mix(in oklab, var(--color-filter-border-selected) 20%, transparent);
+  --accent-text: var(--color-foreground-selected-secondary);
+  /* The nav label sits outside the tile, so it needs a colour that reads on
+     the bare field in both themes. */
+  --accent-on-field: var(--color-foreground-highlight-1);
+
+}
+
+.thrill-light-theme {
+  /* background */
+  --color-background-overlay: var(--color-white);
+  --color-background-primary: var(--color-base-1);
+  --color-background-secondary: var(--color-white);
+  /* surface */
+  --color-surface-1: var(--color-base-4);
+  --color-surface-2: var(--color-base-2);
+  --color-surface-3: var(--color-white);
+  --color-surface-4: var(--color-base-6);
+  --color-surface-5: var(--color-base-3);
+  --color-surface-6: var(--color-white);
+  --color-surface-8: var(--color-base-3);
+  --color-surface-backdrop: var(--color-base-10);
+  --color-surface-control: var(--color-base-8);
+  --color-surface-dimmed: var(--color-base-14);
+  --color-surface-drawer: var(--color-white);
+  --color-surface-highlighted: var(--color-green-3);
+  --color-surface-interactive: var(--color-white);
+  --color-surface-interactive-2: var(--color-base-3);
+  --color-surface-interactive-3: var(--color-base-5);
+  --color-surface-interactive-4: var(--color-base-14);
+  --color-surface-interactive-negative: var(--color-red-2);
+  --color-surface-notification: var(--color-red-1);
+  --color-surface-selected-primary: var(--color-green-3);
+  --color-surface-selected-secondary: var(--color-green-3);
+  --color-surface-stats: var(--color-base-1);
+  /* foreground */
+  --color-foreground-border-2: var(--color-base-8);
+  --color-foreground-dark: var(--color-base-14);
+  --color-foreground-highlight-1: var(--color-green-3);
+  --color-foreground-highlight-2: var(--color-yellow-3);
+  --color-foreground-light: var(--color-white);
+  --color-foreground-muted-1: var(--color-base-8);
+  --color-foreground-muted-2: var(--color-base-7);
+  --color-foreground-muted-3: var(--color-base-8);
+  --color-foreground-primary: var(--color-base-10);
+  --color-foreground-secondary: var(--color-base-10);
+  --color-foreground-selected-primary: var(--color-white);
+  --color-foreground-selected-secondary: var(--color-white);
+  --color-foreground-tertiary: var(--color-base-10);
+  --color-foreground-text: var(--color-base-10);
+  /* border */
+  --color-border: var(--color-base-7);
+  /* control */
+  --color-control-primary: var(--color-white);
+  --color-control-primary-active: var(--color-white);
+  --color-control-primary-active-solid: var(--color-white);
+  --color-control-primary-foreground: var(--color-base-8);
+  --color-control-primary-foreground-active: var(--color-base-10);
+  --color-control-primary-solid: var(--color-white);
+  --color-control-secondary: var(--color-base-2);
+  --color-control-secondary-active: var(--color-base-2);
+  --color-control-secondary-active-solid: var(--color-base-2);
+  --color-control-secondary-foreground: var(--color-base-8);
+  --color-control-secondary-foreground-active: var(--color-base-10);
+  /* button */
+  --color-button-background-default: var(--color-base-8);
+  --color-button-border-gradient-end: var(--color-base-8);
+  --color-button-border-gradient-start: var(--color-base-8);
+  --color-button-primary: var(--color-green-3);
+  --color-button-primary-foreground: var(--color-white);
+  --color-button-secondary: var(--color-base-8);
+  --color-button-secondary-foreground: var(--color-base-10);
+  /* dialog-button */
+  --color-dialog-button-default-background: var(--color-base-8);
+  --color-dialog-button-default-foreground: var(--color-base-10);
+  --color-dialog-button-default-outline: var(--color-base-8);
+  --color-dialog-button-negative-background: var(--color-red-2);
+  --color-dialog-button-negative-foreground: var(--color-white);
+  --color-dialog-button-negative-outline: var(--color-red-2);
+  --color-dialog-button-positive-background: var(--color-green-3);
+  --color-dialog-button-positive-foreground: var(--color-white);
+  --color-dialog-button-positive-outline: var(--color-green-3);
+  /* positive */
+  --color-positive: var(--color-green-2);
+  /* warning */
+  --color-warning: var(--color-yellow-2);
+  /* negative */
+  --color-negative: var(--color-red-2);
+  /* neutral */
+  --color-neutral: var(--color-purple-2);
+  /* badge */
+  --color-badge-blue: #008cbf;
+  --color-badge-blue-background: oklab(60.2366% -.0747211 -.0999152/.1);
+  --color-badge-gray: #99a5bf;
+  --color-badge-gray-background: #99a5bf1a;
+  --color-badge-green: var(--color-green-3);
+  --color-badge-green-background: color-mix(in oklab, var(--color-green-3) 10%, transparent);
+  --color-badge-orange: #e66525;
+  --color-badge-orange-background: oklab(65.8057% .128239 .12066/.1);
+  --color-badge-peach: #f98477;
+  --color-badge-peach-background: oklab(74.065% .128404 .0673259/.1);
+  --color-badge-purple: #8536f3;
+  --color-badge-purple-background: oklab(55.1994% .110537 -.231769/.1);
+  --color-badge-red: var(--color-red-2);
+  --color-badge-red-background: color-mix(in oklab, var(--color-red-2) 10%, transparent);
+  --color-badge-yellow: var(--color-yellow-3);
+  --color-badge-yellow-background: color-mix(in oklab, var(--color-yellow-3) 10%, transparent);
+  /* floating */
+  --color-floating-surface: #fff;
+  --color-floating-surface-border: #b8c2da66;
+  /* menu */
+  --color-menu-background: var(--color-white);
+  --color-menu-border: var(--color-base-6);
+  /* tooltip */
+  --color-tooltip-background: var(--color-floating-surface);
+  --color-tooltip-border: var(--color-floating-surface-border);
+  /* backdrop */
+  --color-backdrop-mobile: var(--color-base-10);
+  /* filter */
+  --color-filter-background: var(--color-white);
+  --color-filter-background-active: var(--color-white);
+  --color-filter-border: var(--color-base-3);
+  --color-filter-border-selected: var(--color-green-3);
+  --color-filter-container: var(--color-base-2);
+  /* list */
+  --color-list-background-orange: #f9e5dc;
+  --color-list-background-red: #f8e7e8;
+  --color-list-background-secondary: #f7f8f9;
+  --color-list-background-yellow: #f9f2dc;
+  --color-list-divider: var(--color-base-8);
+  /* effect */
+  --color-effect-glassmorphism: var(--color-purple-1);
+  --color-effect-glow: var(--color-green-1);
+  --color-effect-glow-negative: var(--color-red-2);
+  --color-effect-glow-soft: var(--color-green-1);
+  /* glow */
+  --color-glow-notification: var(--color-red-2);
+  /* gradient */
+  --color-gradient-green-end: var(--color-green-1);
+  --color-gradient-green-start: var(--color-green-1);
+  --color-gradient-persist-end: var(--color-base-1);
+  --color-gradient-persist-secondary-end: var(--color-white);
+  --color-gradient-persist-secondary-start: var(--color-white);
+  --color-gradient-persist-start: var(--color-base-1);
+  --color-gradient-primary-end: var(--color-base-14);
+  --color-gradient-primary-start: var(--color-base-14);
+  --color-gradient-secondary-end: var(--color-base-13);
+  --color-gradient-secondary-start: var(--color-base-13);
+  /* avatar */
+  --color-avatar-background: var(--color-purple-2);
+  /* skeleton */
+  --color-skeleton-foreground: var(--color-base-6);
+  /* field */
+  --color-field-background: var(--color-base-8);
+  /* widget */
+  --color-widget-background-mobile: #f7f8f94d;
+  --color-widget-stroke-mobile: var(--color-base-10);
+  /* bo-menu */
+  --color-bo-menu-highlighted-background: #858fa60d;
+  /* scrollbar */
+  --color-scrollbar-track: transparent;
+  --color-scrollbar-thumb: color-mix(in oklab, var(--color-base-8) 18%, transparent);
+  --color-scrollbar-thumb-hover: color-mix(in oklab, var(--color-base-8) 28%, transparent);
+  --color-scrollbar-thumb-active: color-mix(in oklab, var(--color-base-8) 55%, transparent);
+  --accent-fill: var(--color-surface-selected-secondary);
+  --accent-fill-strong: var(--color-surface-selected-secondary);
+  --accent-border: color-mix(in oklab, var(--color-green-3) 40%, transparent);
+  --accent-text: var(--color-foreground-selected-secondary);
+  --accent-on-field: var(--color-foreground-highlight-1);
+
+}
+
+/* --------------------------------------------------------------------------
+   4. Bespoke utilities, verbatim from the design system.
+   -------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------------
+   1. Typography (typ-*)
+   Every class except the nocap-* variants trims leading to the cap-height box.
+   text-box handles modern engines; the ::before/::after pair is the fallback.
+   The magic numbers are always -0.20em / -0.31em regardless of size.
+   -------------------------------------------------------------------------- */
+
+.typ-display-xsmall,
+.typ-heading-large,
+.typ-heading-medium,
+.typ-heading-small,
+.typ-label-large,
+.typ-label-medium,
+.typ-label-small,
+.typ-label-xsmall,
+.typ-label-xxsmall,
+.typ-paragraph-medium,
+.typ-paragraph-small,
+.typ-paragraph-xsmall,
+.typ-nocap-label-large,
+.typ-nocap-label-medium,
+.typ-nocap-label-small {
+  font-family: var(--font-oxanium);
+}
+
+.typ-display-xsmall,
+.typ-heading-large,
+.typ-heading-medium,
+.typ-heading-small,
+.typ-label-large,
+.typ-label-medium,
+.typ-label-small,
+.typ-label-xsmall,
+.typ-label-xxsmall,
+.typ-paragraph-medium,
+.typ-paragraph-small,
+.typ-paragraph-xsmall {
+  text-box: cap alphabetic;
+}
+
+.typ-display-xsmall::before,
+.typ-heading-large::before,
+.typ-heading-medium::before,
+.typ-heading-small::before,
+.typ-label-large::before,
+.typ-label-medium::before,
+.typ-label-small::before,
+.typ-label-xsmall::before,
+.typ-label-xxsmall::before,
+.typ-paragraph-medium::before,
+.typ-paragraph-small::before,
+.typ-paragraph-xsmall::before {
+  content: "";
+  display: table;
+  margin-bottom: -0.2em;
+}
+
+.typ-display-xsmall::after,
+.typ-heading-large::after,
+.typ-heading-medium::after,
+.typ-heading-small::after,
+.typ-label-large::after,
+.typ-label-medium::after,
+.typ-label-small::after,
+.typ-label-xsmall::after,
+.typ-label-xxsmall::after,
+.typ-paragraph-medium::after,
+.typ-paragraph-small::after,
+.typ-paragraph-xsmall::after {
+  content: "";
+  display: table;
+  margin-top: -0.31em;
+}
+
+/* display + heading + label: 120% leading */
+.typ-display-xsmall   { font-size: 24px; line-height: 120%; }
+.typ-heading-large    { font-size: 20px; line-height: 120%; }
+.typ-heading-medium   { font-size: 18px; line-height: 120%; }
+.typ-heading-small    { font-size: 16px; line-height: 120%; }
+.typ-label-large      { font-size: 14px; line-height: 120%; }
+.typ-label-medium     { font-size: 13px; line-height: 120%; }
+.typ-label-small      { font-size: 12px; line-height: 120%; }
+.typ-label-xsmall     { font-size: 11px; line-height: 120%; }
+.typ-label-xxsmall    { font-size: 10px; line-height: 120%; }
+
+/* paragraph: 150% leading, prose only */
+.typ-paragraph-medium { font-size: 14px; line-height: 150%; }
+.typ-paragraph-small  { font-size: 13px; line-height: 150%; }
+.typ-paragraph-xsmall { font-size: 12px; line-height: 150%; }
+
+/* nocap: untrimmed, for inputs and anything with a caret or heavy descenders */
+.typ-nocap-label-large  { font-size: 14px; line-height: 120%; }
+.typ-nocap-label-medium { font-size: 13px; line-height: 120%; }
+.typ-nocap-label-small  { font-size: 12px; line-height: 120%; }
+
+/* --------------------------------------------------------------------------
+   2. Interaction
+   The outline is always present and only its colour changes, so focus never
+   shifts layout inside a 34px control row.
+   -------------------------------------------------------------------------- */
+
+.focusable {
+  outline-style: solid;
+  outline-width: 2px;
+  outline-offset: 2px;
+  outline-color: transparent;
+}
+.focusable:focus-visible {
+  outline-color: var(--color-foreground-primary);
+}
+
+/* Uses the scale property, not transform, so it composes with -translate-y-1/2 */
+.int-hover-scale        { transition: scale 0.3s var(--ease-in-out); }
+.int-hover-scale:hover  { scale: 1.03; }
+
+.int-hover-scale-plus       { transition: scale 0.3s var(--ease-in-out); }
+.int-hover-scale-plus:hover { scale: 1.1; }
+
+/* --------------------------------------------------------------------------
+   3. Effects and elevation
+   Only two shadow recipes exist in the whole system, and both are very faint.
+   -------------------------------------------------------------------------- */
+
+.effect-blur-elevation {
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 16px rgb(0 0 0 / 0.08);
+}
+.effect-blur-elevation-soft {
+  backdrop-filter: blur(20px);
+  box-shadow: 0 4px 32px rgb(0 0 0 / 0.08);
+}
+.effect-shadow-s { box-shadow: 0 0 16px rgb(0 0 0 / 0.04); }
+.effect-blur-m   { backdrop-filter: blur(20px); }
+.effect-blur-l   { backdrop-filter: blur(30px); }
+
+.effect-skeleton {
+  background-color: var(--color-skeleton-foreground);
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+@keyframes pulse-and-fade {
+  0%   { opacity: 0.5; transform: scale(0.85); }
+  50%  { opacity: 1;   transform: scale(1); }
+  100% { opacity: 0.5; transform: scale(0.85); }
+}
+@keyframes holo-rotate {
+  0%   { background-position: 0% center; }
+  50%  { background-position: 100% center; }
+  100% { background-position: 0% center; }
+}
+@keyframes holo-shimmer {
+  0%, 100% { filter: hue-rotate(0) brightness(1); }
+  50%      { filter: hue-rotate(20deg) brightness(1.2); }
+}
+@keyframes holo-auto-shine-sweep {
+  0%, 100% { opacity: 0;   background-position: -150% center; }
+  10%      { opacity: 0.8; }
+  50%      { opacity: 0.8; background-position: 150% center; }
+}
+
+/* --------------------------------------------------------------------------
+   4. Scoped stacking
+   One isolate root per complex component, then small relative offsets inside.
+   -------------------------------------------------------------------------- */
+
+.local-z-stack { isolation: isolate; --local-z: 0; }
+.local-z-1 { z-index: calc(var(--local-z) + 1); }
+.local-z-2 { z-index: calc(var(--local-z) + 2); }
+.local-z-3 { z-index: calc(var(--local-z) + 3); }
+.local-z-4 { z-index: calc(var(--local-z) + 4); }
+.local-z-5 { z-index: calc(var(--local-z) + 5); }
+
+/* --------------------------------------------------------------------------
+   5. Surfaces
+   0.6px gradient hairline ring with no extra DOM and no box-shadow blur.
+   isolation: isolate is mandatory, otherwise the -10 layer sinks behind the card.
+   -------------------------------------------------------------------------- */
+
+.circle-button-surface {
+  isolation: isolate;
+  position: relative;
+  background-color: var(--color-button-background-default);
+}
+.circle-button-surface::before {
+  content: "";
+  position: absolute;
+  inset: -0.6px;
+  z-index: -10;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: linear-gradient(
+    135deg,
+    var(--color-button-border-gradient-start),
+    var(--color-button-border-gradient-end)
+  );
+}
+.circle-button-surface::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -10;
+  border-radius: inherit;
+  pointer-events: none;
+  background-color: var(--color-background-secondary);
+}
+
+/* --------------------------------------------------------------------------
+   6. Scrollbars
+   Track is always transparent. Thumb is alpha-based so one definition works on
+   the card, floating surfaces and menus with no per-surface override.
+   -------------------------------------------------------------------------- */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-scrollbar-thumb) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+  background: transparent;
+}
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track-piece,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: var(--color-scrollbar-thumb);
+  border-radius: var(--scrollbar-radius);
+  /* transparent border + content-box clip: the thumb floats inside the gutter
+     while the grab area stays a comfortable 8px */
+  border: var(--scrollbar-inset) solid transparent;
+  background-clip: content-box;
+  transition: background-color 150ms var(--ease-in-out);
+}
+*:hover::-webkit-scrollbar-thumb  { background-color: var(--color-scrollbar-thumb-hover); }
+*::-webkit-scrollbar-thumb:hover  { background-color: var(--color-scrollbar-thumb-active); }
+*::-webkit-scrollbar-thumb:active { background-color: var(--color-scrollbar-thumb-active); }
+*::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+
+/* Fade the bar out entirely when idle. Never apply to the data grid, where the
+   bar is the only affordance communicating the horizontal content width. */
+@media (hover: hover) {
+  .scroll-blend::-webkit-scrollbar-thumb { background-color: transparent; }
+  .scroll-blend:hover::-webkit-scrollbar-thumb,
+  .scroll-blend:focus-within::-webkit-scrollbar-thumb {
+    background-color: var(--color-scrollbar-thumb-hover);
+  }
+}
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* --------------------------------------------------------------------------
+   5. Sonar component layer
+   -------------------------------------------------------------------------- */
