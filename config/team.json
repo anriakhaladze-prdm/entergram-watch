@@ -1,0 +1,25 @@
+{
+  "note": "The team, as Entergram's member list shows it. This exists because account-level attribution cannot work here: @Thrill_VIP_Ops is a SHARED Telegram account that 11 of the 12 members post from, so the connectedAccount on a chat says almost nothing about who hosts that player. Attribution runs on the Telegram sender instead, and this table turns a sender into a person.",
+  "sharedAccounts": ["Thrill_VIP_Ops"],
+  "members": [
+    { "name": "Shane Austin",  "email": "shane.austin@paradym.io",      "role": "OWNER",  "accounts": ["oxjuice", "Thrill_VIP_Ops"] },
+    { "name": "Ryan Moore",    "email": "ryan.moore@paradym.io",        "role": "ADMIN",  "accounts": ["Thrill_VIP_Ops"] },
+    { "name": "Andy Litkie",   "email": "andy.litkie@paradym.io",       "role": "ADMIN",  "accounts": ["Thrill_VIP_Ops"], "senderNames": ["Andy | Thrill"], "telegramUserIds": ["5278034304"] },
+    { "name": "Byron Petzer",  "email": "byron@paradym.io",             "role": "ADMIN",  "accounts": ["Thrill_VIP_Ops"], "hosting": false, "reason": "CEO, no longer hosting" },
+    { "name": "Henry",         "email": "anri.akhaladze@paradym.io",    "role": "ADMIN",  "accounts": ["FreZzyCopter", "Thrill_VIP_Ops"], "telegramUserIds": ["5715310548", "8797108490"] },
+    { "name": "Kyle",          "email": "kyle@paradym.io",              "role": "MEMBER", "accounts": ["Thrill_VIP_Ops"], "senderNames": ["Kyle | Thrill VIP"], "telegramUserIds": ["7973277038"] },
+    { "name": "Terry Blankfield", "email": "terry.blankfield@paradym.io", "role": "MEMBER", "accounts": ["Thrill_VIP_Ops"] },
+    { "name": "Carter",        "email": "brandyn@paradym.io",           "role": "MEMBER", "accounts": ["Thrill_VIP_Ops"], "senderNames": ["Carter | Thrill VIP"], "telegramUserIds": ["8309810799"] },
+    { "name": "Colton",        "email": "patrick@paradym.io",           "role": "MEMBER", "accounts": ["ColtonThrill", "Thrill_VIP_Ops"], "senderNames": ["Colton | Thrill VIP"], "telegramUserIds": ["8268223773"] },
+    { "name": "Mikey",         "email": "kaleb.d@thrillaffiliates.com", "role": "MEMBER", "accounts": ["mikeythrillaffiliate", "Thrill_VIP_Ops"], "senderNames": ["Mikey | Thrill Affiliate"], "telegramUserIds": ["5013178890"] },
+    { "name": "Kaleb Davis",   "email": "kaleb.davis@paradym.io",       "role": "MEMBER", "accounts": ["Thrill_VIP_Ops"] },
+    { "name": "Rayne Davis",   "email": "rayne.davis@paradym.io",       "role": "MEMBER", "accounts": ["Thrill_VIP_Ops"] }
+  ],
+  "unresolved": [
+    {
+      "senderName": "High Priest - Thrill.com",
+      "telegramUserId": "8120203444",
+      "note": "Posts from the shared account under this display name and hosts a large number of players. Which member is this? Adding the id to their telegramUserIds is the only change needed."
+    }
+  ]
+}

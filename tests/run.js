@@ -145,6 +145,38 @@ t('reply latency is measured per exchange, not per message', () => {
   if (Math.abs(r.replyMedianMins - 30) > 2) throw new Error(`expected about 30 minutes, got ${r.replyMedianMins}`);
 });
 
+t('the host is whoever talks, not the account the chat is filed under', () => {
+  // Every chat is filed under the shared @Thrill_VIP_Ops account, so the
+  // account cannot identify anyone. Carter did the talking, so it is Carter's.
+  const r = analyzeChat(chat({ connectedAccount: { id: 'cmrkls1rc0uofs51kvp550bs9', username: 'Thrill_VIP_Ops' } }), {
+    messages: [
+      { ...msg(1, '8309810799', { senderName: 'Carter | Thrill VIP' }), text: 'close to Emerald now boss' },
+      { ...msg(2, PLAYER), text: 'been a grind' },
+      { ...msg(3, '8309810799', { senderName: 'Carter | Thrill VIP' }), text: 'nice reload added' },
+    ],
+    now: NOW, expectedMembers: 8,
+  });
+  eq(r.host, 'Carter');
+  eq(r.hostIdentified, true);
+  eq(r.hostSource, 'conversation');
+});
+t('a staff member we cannot name is reported as unidentified, never guessed', () => {
+  const r = analyzeChat(chat(), {
+    messages: [{ ...msg(1, '8120203444', { senderName: 'High Priest - Thrill.com' }), text: 'let me look' }, msg(2, PLAYER)],
+    now: NOW, expectedMembers: 8,
+  });
+  eq(r.hostIdentified, false);
+  eq(r.host, 'High Priest - Thrill.com');
+  eq(r.hostSource, 'conversation, unidentified');
+});
+t("a retired host's players are unhosted even when they are the one talking", () => {
+  const r = analyzeChat(chat({ lastMessageDate: ago(40) }), {
+    messages: [{ ...msg(40, '9999', { senderName: 'Byron | Thrill' }), text: 'hey' }],
+    now: NOW, expectedMembers: 8,
+  });
+  eq(r.state, 'unhosted');
+});
+
 // --- host state ----------------------------------------------------------
 t("an inactive host's chats are unhosted, not quiet", () => {
   const r = analyzeChat(chat({ connectedAccount: { id: 'cmrjnjs2r0q2xs51ko0u2bt2g', username: 'byronthrill' }, lastMessageDate: ago(400) }), { now: NOW });
@@ -228,6 +260,13 @@ t('the provider follows whichever key is set', () => {
   eq(detectProvider({ OPENAI_API_KEY: 'x', ANTHROPIC_API_KEY: 'y', SENTIMENT_PROVIDER: 'anthropic' }), 'anthropic');
   eq(detectProvider({}), null);
   eq(detectProvider({ OPENAI_API_KEY: 'x', SENTIMENT_PROVIDER: 'none' }), null);
+});
+t('the alert says the verdict came from the player and quotes them', () => {
+  const r = analyzeChat(chat(), { messages: [msg(3, PLAYER), msg(6, STAFF)], now: NOW, expectedMembers: 8 });
+  r.sentiment = { label: 'negative', reason: 'disappointed about losses', flags: [], quote: 'While being down 15k on the book smh' };
+  const text = formatAlert(r);
+  if (!/player's messages only/.test(text)) throw new Error('should say whose words were scored');
+  if (!/down 15k on the book/.test(text)) throw new Error('should quote the player');
 });
 t('the alert carries the sentiment when it is not neutral', () => {
   const r = analyzeChat(chat(), { messages: [msg(3, PLAYER), msg(6, STAFF)], now: NOW, expectedMembers: 8 });

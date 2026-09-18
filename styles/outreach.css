@@ -120,6 +120,27 @@
 
 .ow-barlist { display: flex; flex-direction: column; gap: var(--spacing-10); }
 .ow-bar-row { display: grid; grid-template-columns: 116px 1fr 44px; align-items: center; gap: var(--spacing-12); }
+/* ---------------------------------------------------------------------------
+   The descender trap.
+
+   Every typ-* class trims the font's leading down to the cap-height box using
+   negative margins on ::before and ::after. That is what makes labels sit
+   optically centred in a 34px pill with no manual nudging, and it means the
+   box is SHORTER than the glyphs. Put overflow:hidden on the same element and
+   the descenders are cut off: "Unhappy" renders as "Unhappv".
+
+   So anywhere text clips, the trim is switched off on that element. Use
+   .ow-clip rather than hand-rolling overflow:hidden next to a typ-* class.
+   --------------------------------------------------------------------------- */
+.ow-clip {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ow-clip::before { margin-bottom: 0 !important; }
+.ow-clip::after { margin-top: 0 !important; }
+
 /* No typ-* class on a label that also clips horizontally. Those classes trim
    the leading to the cap-height box with negative pseudo-element margins, and
    a box that short combined with overflow:hidden crops the descenders: the

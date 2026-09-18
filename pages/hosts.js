@@ -9,7 +9,7 @@ import { useSnapshot, ACTIONABLE } from '../components/useSnapshot';
 const LOAD_MAX = 50;
 const COLS = [
   { key: 'host',    label: 'Host',         w: 'minmax(200px, 1fr)' },
-  { key: 'account', label: 'Account',      w: '180px' },
+  { key: 'account', label: 'Identified as', w: '220px' },
   { key: 'players', label: 'Players',      w: '110px' },
   { key: 'waiting', label: 'Waiting',      w: '110px' },
   { key: 'action',  label: 'Needs action', w: '140px' },
@@ -35,6 +35,10 @@ export default function Hosts() {
       return {
         host,
         account: list[0]?.hostAccount || null,
+        identified: list.some((r) => r.hostIdentified),
+        displayName: list[0]?.hostDisplayName || null,
+        email: list.find((r) => r.hostEmail)?.hostEmail || null,
+        source: list[0]?.hostSource || null,
         active: list.some((r) => r.hostActive),
         players: list.length,
         waiting: list.filter((r) => r.state === 'waiting_on_us').length,
@@ -95,7 +99,9 @@ export default function Hosts() {
                     {!h.active ? <span className="th-badge th-badge-blue typ-label-small ow-inline-badge">no longer hosting</span> : null}
                   </>,
                 )}
-                {cell(h.account || '–', 'ow-sub')}
+                {cell(h.identified
+                  ? <span className="ow-sub">{h.email || 'team member'}</span>
+                  : <span className="th-badge th-badge-yellow typ-label-small">not in the team list</span>, 'ow-clip')}
                 {cell(
                   <>
                     {h.players}

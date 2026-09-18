@@ -114,7 +114,7 @@ export default function Queue() {
                         ? <a className="th-link ow-player-link" href={r.inviteLink} target="_blank" rel="noreferrer"
                             title="Open the group in Telegram">{r.player || r.title}</a>
                         : (r.player || r.title))}
-                      {cell(r.host || '–', 'ow-sub')}
+                      {cell(r.host || '–', 'ow-sub ow-clip')}
                       {cell(<span className={`th-badge th-badge-${BADGE[r.state] || 'gray'} typ-label-small`}>{s.label}</span>)}
                       {cell(age(r.quietDays), 'ow-nums')}
                       {cell(r.historyRead ? age(r.playerQuietDays) : <span className="ow-muted">·</span>,
@@ -126,7 +126,7 @@ export default function Queue() {
                         : <span className="ow-muted">–</span>)}
                       {cell(r.signals?.[0]
                         || (r.historyState === 'read' ? 'in contact'
-                          : r.historyState === 'unavailable' ? 'history not readable' : 'history not read yet'), 'ow-sub')}
+                          : r.historyState === 'unavailable' ? 'history not readable' : 'history not read yet'), 'ow-sub ow-clip')}
                     </div>
                   );
                 })}
