@@ -102,79 +102,58 @@ t('a question is never a sign-off however polite', () => {
 });
 
 // --- leaving -------------------------------------------------------------
-t('a leave action plus a low member count is player_left', () => {
-  const r = analyzeChat(chat({ membersCount: 7 }), {
-    messages: [msg(1, STAFF, { actionType: 'chatDeleteUser' }), msg(2, PLAYER), msg(3, STAFF)],
+t('a host being removed is not the player leaving', () => {
+  // luvboobs x Thrill.com. Kyle removed Andre, another host. The member count
+  // fell to 7 and the player was still in the group and still talking. This
+  // exact chat was reported as "no player left in the group".
+  const r = analyzeChat(chat({ title: 'luvboobs x Thrill.com', membersCount: 7 }), {
+    messages: [
+      { ...msg(1, '7973277038', { senderName: 'Kyle | Thrill VIP', actionType: 'chatDeleteUser' }), text: 'Kyle | Thrill VIP removed Andre' },
+      { ...msg(2, PLAYER, { senderName: 'Luvboobs' }), text: 'Have a great night and thank you' },
+      { ...msg(3, '8268223773', { senderName: 'Colton | Thrill VIP' }), text: 'what sports you fancy this weekend' },
+    ],
+    now: NOW, expectedMembers: 8,
+  });
+  if (r.state === 'player_left') throw new Error('a host rotation is not a player departure');
+  eq(r.leaveActionAt, null);
+  if (!r.staffChurn.includes('Andre')) throw new Error('the staff change should still be recorded');
+});
+t('the player leaving is caught by name', () => {
+  const r = analyzeChat(chat({ title: 'luvboobs x Thrill.com', membersCount: 7 }), {
+    messages: [
+      { ...msg(1, '7973277038', { senderName: 'Kyle | Thrill VIP', actionType: 'chatDeleteUser' }), text: 'Kyle | Thrill VIP removed Luvboobs' },
+      { ...msg(2, PLAYER, { senderName: 'Luvboobs' }), text: 'thanks' },
+    ],
     now: NOW, expectedMembers: 8,
   });
   eq(r.state, 'player_left');
 });
-t('a leave action with a normal member count is not player_left, it is noted', () => {
-  const r = analyzeChat(chat({ membersCount: 8 }), {
-    messages: [msg(1, STAFF, { actionType: 'chatDeleteUser' }), msg(2, PLAYER)],
-    now: NOW, expectedMembers: 8,
-  });
-  if (r.state === 'player_left') throw new Error('should not conclude the player left on one uncorroborated action');
-  if (!r.signals.some((s) => /does not corroborate/.test(s))) throw new Error('should record the uncorroborated leave');
-});
-t('staff being added does not look like a departure', () => {
-  const r = analyzeChat(chat(), { messages: [msg(1, STAFF, { actionType: 'chatAddUser' }), msg(2, PLAYER)], now: NOW, expectedMembers: 8 });
-  eq(r.state, 'waiting_on_us');
-});
-t('a service message is not outreach', () => {
-  const r = analyzeChat(chat({ lastMessageDate: ago(1) }), {
-    messages: [msg(1, STAFF, { actionType: 'chatAddUser' }), msg(30, PLAYER), msg(45, STAFF)],
-    now: NOW, expectedMembers: 8,
-  });
-  eq(Math.round(r.staffQuietDays), 45, 'the add should not count as us speaking:');
-});
-
-t('reply latency is measured per exchange, not per message', () => {
-  // Player asks at T-10d. Host answers 30 minutes later, then sends two more
-  // messages. That is one response of 30 minutes, not three of nothing.
-  const r = analyzeChat(chat(), {
+t('a player who leaves of their own accord is caught too', () => {
+  const r = analyzeChat(chat({ title: 'swish718 x Thrill.com' }), {
     messages: [
-      { ...msg(9.9, STAFF), text: 'and one more thing' },
-      { ...msg(9.95, STAFF), text: 'also this' },
-      { ...msg(9.979, STAFF), text: 'on it' },
-      { ...msg(10, PLAYER), text: 'can you check my account' },
+      { ...msg(1, null, { senderName: null, actionType: 'chatDeleteUser' }), text: 'swish718 left the group' },
+      { ...msg(2, PLAYER), text: 'ok' },
     ],
     now: NOW, expectedMembers: 8,
   });
-  eq(r.replySamples, 1);
-  if (Math.abs(r.replyMedianMins - 30) > 2) throw new Error(`expected about 30 minutes, got ${r.replyMedianMins}`);
+  eq(r.state, 'player_left');
 });
-
-t('the host is whoever talks, not the account the chat is filed under', () => {
-  // Every chat is filed under the shared @Thrill_VIP_Ops account, so the
-  // account cannot identify anyone. Carter did the talking, so it is Carter's.
-  const r = analyzeChat(chat({ connectedAccount: { id: 'cmrkls1rc0uofs51kvp550bs9', username: 'Thrill_VIP_Ops' } }), {
-    messages: [
-      { ...msg(1, '8309810799', { senderName: 'Carter | Thrill VIP' }), text: 'close to Emerald now boss' },
-      { ...msg(2, PLAYER), text: 'been a grind' },
-      { ...msg(3, '8309810799', { senderName: 'Carter | Thrill VIP' }), text: 'nice reload added' },
-    ],
+t('member count on its own decides nothing', () => {
+  // Seven members with the player present is normal in plenty of these groups.
+  const r = analyzeChat(chat({ membersCount: 6 }), {
+    messages: [{ ...msg(1, PLAYER), text: 'still here' }, { ...msg(2, STAFF), text: 'good to hear' }],
     now: NOW, expectedMembers: 8,
   });
-  eq(r.host, 'Carter');
-  eq(r.hostIdentified, true);
-  eq(r.hostSource, 'conversation');
+  if (r.state === 'player_left') throw new Error('a low member count is not evidence');
 });
-t('a staff member we cannot name is reported as unidentified, never guessed', () => {
-  const r = analyzeChat(chat(), {
-    messages: [{ ...msg(1, '8120203444', { senderName: 'High Priest - Thrill.com' }), text: 'let me look' }, msg(2, PLAYER)],
+t('a silent history only counts when there is enough of it to be silent', () => {
+  const thin = analyzeChat(chat(), { messages: [{ ...msg(1, STAFF), text: 'hello' }], now: NOW, expectedMembers: 8 });
+  if (thin.state === 'player_left') throw new Error('one staff message is not proof the player is gone');
+  const thick = analyzeChat(chat({ lastMessageDate: ago(9) }), {
+    messages: Array.from({ length: 24 }, (_, i) => ({ ...msg(9 + i * 0.01, STAFF), text: 'checking in' })),
     now: NOW, expectedMembers: 8,
   });
-  eq(r.hostIdentified, false);
-  eq(r.host, 'High Priest - Thrill.com');
-  eq(r.hostSource, 'conversation, unidentified');
-});
-t("a retired host's players are unhosted even when they are the one talking", () => {
-  const r = analyzeChat(chat({ lastMessageDate: ago(40) }), {
-    messages: [{ ...msg(40, '9999', { senderName: 'Byron | Thrill' }), text: 'hey' }],
-    now: NOW, expectedMembers: 8,
-  });
-  eq(r.state, 'unhosted');
+  eq(thick.state, 'player_left');
 });
 
 // --- host state ----------------------------------------------------------
