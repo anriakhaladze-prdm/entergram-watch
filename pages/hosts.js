@@ -69,7 +69,6 @@ export default function Hosts() {
       <div className="ow-page">
         <div className="ow-strip">
           <span className="ow-strip-main typ-label-small">{hosts.filter((h) => !h.unattributed).length} hosts · {summary.hosted} hosted players</span>
-          <span className="ow-strip-sub typ-label-small">host = most messages in the group, recent first · contacted 7d over players where known · click a row for the queue</span>
         </div>
         <div className="th-grid-scroll ow-grid-inline">
           <div className="th-grid" style={{ gridTemplateColumns: COLS.map((c) => c.w).join(' ') }}>

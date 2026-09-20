@@ -54,12 +54,12 @@ export default function Activity() {
             {h?.meta?.lastFullAt ? ` · last full sweep ${when(h.meta.lastFullAt)}` : ''}
             {avgMs != null ? ` · average ${avgMs}s per scan` : ''}
           </span>
-          <span className="ow-strip-sub typ-label-small">cron every 5 min · full sweep hourly · baseline seeded {h?.meta?.seededAt ? when(h.meta.seededAt) : 'not yet'}</span>
+
         </div>
 
         <div className="ow-section-head">
           <span className="ow-section-title typ-label-small">Alerts posted</span>
-          <span className="ow-section-sub typ-label-small">7 days without contact: nothing from us for a week · Churn signal: the player&rsquo;s own words read as at risk and nobody has replied yet (URGENT_ALERTS=off to turn off) · click a row to open the player</span>
+          <span className="ow-section-sub typ-label-small">{alerts.length ? `last ${alerts.length}` : 'none yet'}</span>
         </div>
         <div className="th-grid-scroll ow-grid-inline">
           <div className="th-grid" style={{ gridTemplateColumns: ALERT_COLS.map((c) => c.w).join(' ') }}>
@@ -70,7 +70,7 @@ export default function Activity() {
               {alerts.map((a, i) => (
                 <div className="th-grid-row is-link" key={`${a.at}-${i}`} onClick={() => router.push(queueHref({ f: 'hosted', chat: a.chatId }))} role="link" tabIndex={0}>
                   {cell(when(a.at), 'ow-sub')}
-                  {cell(<>{ALERT_KINDS[a.kind]?.dot} {ALERT_KINDS[a.kind]?.label || a.kind}</>)}
+                  {cell(ALERT_KINDS[a.kind]?.label || a.kind)}
                   {cell(a.player, 'ow-clip')}
                   {cell(a.host || 'unattributed', 'ow-sub ow-clip')}
                   {cell(a.dryRun ? 'dry run' : a.ts ? 'sent' : 'logged', 'ow-sub')}

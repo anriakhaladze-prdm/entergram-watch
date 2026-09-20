@@ -91,7 +91,6 @@ export default function Overview() {
 
         <div className="ow-section-head">
           <span className="ow-section-title typ-label-small">By host</span>
-          <span className="ow-section-sub typ-label-small">click a row for the host&rsquo;s queue</span>
         </div>
         <div className="th-grid-scroll ow-grid-inline">
           <div className="th-grid" style={{ gridTemplateColumns: HOST_COLS.map((c) => c.w).join(' ') }}>
@@ -119,7 +118,7 @@ export default function Overview() {
 
         <div className="ow-section-head">
           <span className="ow-section-title typ-label-small">Where the book sits</span>
-          <span className="ow-section-sub typ-label-small">{summary.hosted} hosted players · click a bar to open it</span>
+          <span className="ow-section-sub typ-label-small">{summary.hosted} hosted players</span>
         </div>
         <div className="ow-charts">
           <Histogram title="Days since we last spoke" sub="hosted players" buckets={m.silence} tone="yellow" />
@@ -132,7 +131,6 @@ export default function Overview() {
 
         <div className="ow-section-head">
           <span className="ow-section-title typ-label-small">Trend</span>
-          <span className="ow-section-sub typ-label-small">one point per day</span>
         </div>
         <div className="ow-charts ow-charts-wide">
           <Trend title="Players needing action" sub={days.length > 1 ? `${days.length} days` : null} days={days.map((d) => d.day?.slice(5) || '')}
