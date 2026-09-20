@@ -36,9 +36,15 @@ export function fakeUpstash() {
 
 // chats: array of workspace chat entries. messages: chatId -> array of API
 // messages (newest first not required). Records every call.
-export function fakeEntergram({ chats = [], messages = {}, customFields = {}, groups = [] } = {}) {
+export function fakeEntergram({ chats = [], messages = {}, customFields = {}, groups = [], events = [] } = {}) {
   const calls = [];
   return {
+    async events({ after = 0, limit = 500 } = {}) {
+      calls.push(['events', after]);
+      const items = events.filter((e) => e.cursor > after).slice(0, limit);
+      const last = items.length ? items[items.length - 1].cursor : after;
+      return { items, hasMore: events.some((e) => e.cursor > last), nextCursor: last };
+    },
     calls,
     setChats(next) { chats = next; },
     setMessages(id, msgs) { messages[id] = msgs; },

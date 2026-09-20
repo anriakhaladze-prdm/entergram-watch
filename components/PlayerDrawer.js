@@ -67,7 +67,7 @@ export default function PlayerDrawer({ row, onClose }) {
               {fact('Any message', row.lastMessageAt ? `${age(row.quietDays)} ago` : '–')}
               {fact('First reply', row.reply ? <>median {mins(row.reply.medianMins)}<span className="ow-sub"> · p90 {mins(row.reply.p90Mins)} · worst {mins(row.reply.worstMins)} · {row.reply.samples} exchanges</span></> : 'not measured', 'ow-wrap')}
               {fact('Members', row.membersCount ?? '–')}
-              {fact('History', row.history === 'read' ? `read ${row.historyAt ? when(row.historyAt) : ''}` : row.history === 'unavailable' ? 'not readable, add @Thrill_VIP_Ops to the group' : 'queued for a read')}
+              {fact('History', row.history === 'read' ? `read ${row.historyAt ? when(row.historyAt) : ''}` : row.history === 'events' ? 'event stream, text not readable' : row.history === 'unavailable' ? 'not readable, last message only' : 'queued for a read')}
               {fact('Known by accounts', (row.accounts || []).join(', ') || '–')}
               {fact('Chat id', row.chatId, 'mono')}
             </div>

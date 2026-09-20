@@ -36,19 +36,32 @@ export const replyBucket = (row) => {
 
 // f=: states and a few derived sets.
 export const SETS = {
+  all: { label: 'All', test: () => true },
   actionable: { label: 'Needs action', test: (r) => r.actionable },
   hosted: { label: 'Hosted', test: (r) => !r.flags.left && !r.flags.unhosted },
   contacted: { label: 'Contacted in 7d', test: (r) => r.flags.contacted7d },
   no_contact_any: { label: 'No contact 7d+ (all)', test: (r) => r.flags.no_contact && !r.flags.left && !r.flags.unhosted },
+  events: { label: 'Timing from the event stream', test: (r) => r.history === 'events' },
   unread: { label: 'History not read', test: (r) => r.history !== 'read' },
   unavailable: { label: 'History not readable', test: (r) => r.history === 'unavailable' },
   unattributed: { label: 'Host unattributed', test: (r) => r.hostUnattributed && !r.flags.left && !r.flags.unhosted },
   alerted: { label: 'Alerted', test: (r) => Boolean(r.alerts?.no_contact && !r.alerts.no_contact.seeded) || Boolean(r.alerts?.urgent && !r.alerts.urgent.seeded) },
 };
 
+// The queue's tabs. Active is the worklist; time-barred and gone (left or
+// unhosted) are kept out of it and out of every count on it.
+export const TABS = [
+  { key: 'active', label: 'Active', test: (r) => !r.flags.barred && !r.flags.left && !r.flags.unhosted, states: ['waiting', 'unhappy', 'no_contact', 'ignored', 'ok'] },
+  { key: 'barred', label: 'Time-barred', test: (r) => r.flags.barred && !r.flags.left && !r.flags.unhosted, states: [] },
+  { key: 'gone', label: 'Left and unhosted', test: (r) => r.flags.left || r.flags.unhosted, states: ['left', 'unhosted'] },
+];
+export const TAB = Object.fromEntries(TABS.map((t) => [t.key, t]));
+export const tabOf = (row) => TABS.find((t) => t.test(row))?.key || 'active';
+
 export function parseFilters(query = {}) {
   const list = (v) => (v == null || v === '' ? [] : String(v).split(',').filter(Boolean));
   return {
+    tab: TAB[query.tab] ? String(query.tab) : null,
     f: list(query.f),
     host: query.host ? String(query.host) : null,
     mood: query.mood ? String(query.mood) : null,
@@ -60,6 +73,7 @@ export function parseFilters(query = {}) {
 }
 
 export function matchRow(row, fl) {
+  if (fl.tab && !TAB[fl.tab].test(row)) return false;
   if (fl.f.length) {
     const hit = fl.f.some((k) => (SETS[k] ? SETS[k].test(row) : STATE[k] ? row.state === k : false));
     if (!hit) return false;

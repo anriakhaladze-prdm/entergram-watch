@@ -10,6 +10,7 @@ import { postSlack, postSequence, RateLimited } from '../lib/slack.js';
 import { runScan, updateTally, learnedStaff } from '../lib/scan.js';
 import * as kv from '../lib/state.js';
 import { fakeUpstash, fakeEntergram, fakeSlack } from './fakes.js';
+import { applyEvent, emptyEv, factsFromEvents, ingestEvents } from '../lib/events.js';
 
 const NEGATIVE_LABELS = new Set(['negative', 'at_risk']);
 let pass = 0, fail = 0;
@@ -143,9 +144,11 @@ await t('we posting into a silent player is ignored, and counts as contacted', (
   const r = derive(chat({ lastMessageDate: ago(2), lastMessage: { date: ago(2), sender: { id: COLTON } } }), factsOf([msg(2, COLTON), msg(40, PLAYER)]));
   eq(r.state, 'ignored'); eq(r.flags.contacted7d, true); eq(r.flags.no_contact, false);
 });
-await t('90 days of silence is dormant, not no_contact', () => {
-  const r = derive(chat({ lastMessageDate: ago(120) }), factsOf([msg(120, COLTON), msg(121, PLAYER)]));
-  eq(r.state, 'dormant'); eq(r.flags.dormant, true); eq(r.flags.no_contact, true);
+await t('20 days of silence is time-barred, not no_contact, and 19 is still no_contact', () => {
+  const r = derive(chat({ lastMessageDate: ago(25) }), factsOf([msg(25, COLTON), msg(26, PLAYER)]));
+  eq(r.state, 'barred'); eq(r.flags.barred, true); eq(r.flags.no_contact, true);
+  const live = derive(chat({ lastMessageDate: ago(19) }), factsOf([msg(19, COLTON), msg(20, PLAYER)]));
+  eq(live.state, 'no_contact'); eq(live.flags.barred, false);
 });
 await t('without history, a last message from staff dates our silence exactly', () => {
   const r = derive(chat({ lastMessageDate: ago(9), lastMessage: { date: ago(9), isOut: false, sender: { id: COLTON } } }), null);
@@ -193,8 +196,8 @@ await t('no_contact fires once per silence and re-arms only after we speak', () 
   const unread = derive(chat({ lastMessageDate: ago(2) }), null);
   eq(dueAlerts(unread, { no_contact: { at: ago(1), seeded: true } }, { now: NOW }).length, 0, 'unknown silence never fires off a seed');
 });
-await t('no alert for dormant, left or unhosted chats', () => {
-  eq(dueAlerts(derive(chat({ lastMessageDate: ago(120) }), factsOf([msg(120, COLTON), msg(121, PLAYER)])), {}, { now: NOW }).length, 0);
+await t('no alert for time-barred, left or unhosted chats', () => {
+  eq(dueAlerts(derive(chat({ lastMessageDate: ago(25) }), factsOf([msg(25, COLTON), msg(26, PLAYER)])), {}, { now: NOW }).length, 0);
   eq(dueAlerts(derive(chat({ connectedAccount: { id: 'y', username: 'byronthrill' }, lastMessageDate: ago(20) }), null), {}, { now: NOW }).length, 0);
 });
 await t('waiting on its own never alerts', () => {
@@ -287,6 +290,39 @@ await t('postSequence stops at the first failure and reports what was sent', asy
   eq(r.sent.length, 2); ok(r.error instanceof RateLimited);
 });
 
+// --- the event stream --------------------------------------------------------------
+const evt = (chatId, minAgo, senderId, over = {}) => ({ type: 'message.created', connectedAccountId: 'acct-x', chatId, messageId: String(Math.floor(Math.random() * 1e6)), occurredAt: new Date(NOW - minAgo * 60000).toISOString(), direction: 'incoming', isOut: false, senderId, senderName: null, ...over });
+await t('the same message seen by twelve accounts is one turn', () => {
+  const ev = emptyEv();
+  const at = new Date(NOW - 60000).toISOString();
+  for (let i = 0; i < 12; i++) applyEvent(ev, { occurredAt: at, senderId: PLAYER, isOut: false, connectedAccountId: `a${i}`, messageId: String(1000 + i) });
+  eq(ev.turns.length, 1); eq(ev.turns[0].s, 'player');
+  applyEvent(ev, { occurredAt: new Date(NOW - 30000).toISOString(), senderId: COLTON, isOut: false });
+  applyEvent(ev, { occurredAt: new Date(NOW - 20000).toISOString(), senderId: '424242', isOut: true, connectedAccountId: 'colton-acct' });
+  eq(ev.turns.length, 3); eq(ev.turns[1].s, 'staff', 'known staff id'); eq(ev.turns[2].s, 'staff', 'isOut from any account is ours');
+});
+await t('facts from the stream give timing, host and reply times, and never text-based facts', () => {
+  const ev = emptyEv();
+  for (const e of [evt('-1', 300, PLAYER), evt('-1', 290, COLTON), evt('-1', 289, COLTON), evt('-1', 100, PLAYER), evt('-1', 95, KYLE), evt('-1', 10, PLAYER)]) applyEvent(ev, e);
+  const f = factsFromEvents(ev, { now: NOW });
+  eq(f.source, 'events'); eq(f.host.name, 'Colton'); eq(f.host.others, 1); eq(f.reply.samples, 2); eq(f.reply.medianMins, 10);
+  eq(f.lastPlayerAt, new Date(NOW - 10 * 60000).toISOString()); eq(f.lastPlayerAck, null); eq(f.playerLeftAt, null);
+  const row = deriveRow(chatMeta({ ...chat({ lastMessageDate: new Date(NOW - 10 * 60000).toISOString(), lastMessage: { date: new Date(NOW - 10 * 60000).toISOString(), sender: { id: PLAYER } } }), accounts: ['ColtonThrill'] }), { evFacts: f, historyUnavailable: true }, { now: NOW });
+  eq(row.history, 'events'); eq(row.host, 'Colton'); eq(row.spokeLast, 'player'); eq(row.flags.left, false); eq(row.reply.samples, 2);
+});
+await t('ingestEvents follows the cursor, keeps only book chats, and reports when caught up', async () => {
+  const pages = [
+    { items: [evt('-1', 50, PLAYER, { cursor: 1 }), evt('-999', 49, PLAYER, { cursor: 2 }), evt('-1', 48, COLTON, { cursor: 3 })], nextCursor: 3, hasMore: true },
+    { items: [evt('-2', 40, PLAYER, { cursor: 4 })], nextCursor: 4, hasMore: false },
+  ];
+  const calls = [];
+  const api = { events: async (p) => { calls.push(p); return pages.shift() || { items: [], nextCursor: p.after, hasMore: false }; } };
+  const states = new Map();
+  const r = await ingestEvents(api, { cursor: 0, backfillDays: 10, pageBudget: 5, bookIds: new Set(['-1', '-2']), states, now: NOW });
+  eq(r.cursor, 4); eq(r.caughtUp, true); eq(r.touched.size, 2); eq(states.get('-1').ev.turns.length, 2); eq(states.has('-999'), false);
+  ok(calls[0].updatedSince, 'first call starts the backfill'); eq(calls[1].updatedSince, undefined, 'later pages follow the cursor');
+});
+
 // --- the scan, end to end --------------------------------------------------------
 const useKv = () => {
   const up = fakeUpstash();
@@ -303,7 +339,7 @@ const workspace = () => {
     connectedAccount: { id: 'acct-vipops', username: 'Thrill_VIP_Ops' },
     lastMessageDate: ago(1), updatedAt: ago(1), lastMessage: { date: ago(1), isOut: false, sender: { id: PLAYER } }, ...over,
   });
-  // 1..3 fine, 4..6 already past a week with no word from us, 7 dormant, 8 an affiliate room, 9 duplicate of 5 under another account
+  // 1..3 fine, 4..6 already past a week with no word from us, 7 time-barred, 8 an affiliate room, 9 duplicate of 5 under another account
   for (let i = 1; i <= 3; i++) chats.push(mk(i, { lastMessageDate: ago(0.5), updatedAt: ago(0.5), lastMessage: { date: ago(0.5), sender: { id: COLTON } } }));
   for (let i = 4; i <= 6; i++) chats.push(mk(i, { lastMessageDate: ago(10), updatedAt: ago(10), lastMessage: { date: ago(10), sender: { id: COLTON } } }));
   chats.push(mk(7, { lastMessageDate: ago(200), updatedAt: ago(200), lastMessage: { date: ago(200), sender: { id: COLTON } } }));
@@ -407,6 +443,35 @@ await t('the per-run cap holds the overflow and posts one line about it', async 
   eq(r.posted, 2); eq(r.overflow, 1);
   ok(slack.posts.at(-1).includes('1 more player'), slack.posts.at(-1));
   delete process.env.MAX_ALERTS_PER_RUN;
+});
+
+await t('an unreadable group gets its timing from the event stream and is classified from it', async () => {
+  const up = useKv();
+  const { chats, messages } = workspace();
+  messages['-5000000002'] = [];   // reader account not in this group
+  const T = (minAgo) => new Date(NOW - minAgo * 60000).toISOString();
+  const events = [
+    { cursor: 1, type: 'message.created', chatId: '-5000000002', occurredAt: T(3 * 1440), senderId: PLAYER, isOut: false, connectedAccountId: 'colton' },
+    { cursor: 2, type: 'message.created', chatId: '-5000000002', occurredAt: T(3 * 1440 - 4), senderId: COLTON, isOut: true, connectedAccountId: 'colton' },
+    { cursor: 3, type: 'message.created', chatId: '-5000000002', occurredAt: T(3 * 1440 - 4), senderId: COLTON, isOut: false, connectedAccountId: 'other' },
+    { cursor: 4, type: 'message.created', chatId: '-5000000002', occurredAt: T(30), senderId: PLAYER, isOut: false, connectedAccountId: 'colton' },
+    { cursor: 5, type: 'message.created', chatId: '-77', occurredAt: T(20), senderId: PLAYER, isOut: false, connectedAccountId: 'colton' },
+  ];
+  const c2 = chats.find((c) => c.telegramId === '-5000000002');
+  c2.lastMessageDate = T(30); c2.updatedAt = T(30); c2.lastMessage = { date: T(30), isOut: false, sender: { id: PLAYER } };
+  const api = fakeEntergram({ chats, messages, events });
+  const slack = fakeSlack();
+  const r = await runScan({ api, now: NOW, log: () => {}, post: slack.post, alertGapMs: 0 });
+  const row = r.rows.find((x) => x.chatId === '-5000000002');
+  eq(row.history, 'events'); eq(row.host, 'Colton'); eq(row.hostSource, 'conversation');
+  eq(row.lastStaffAt, T(3 * 1440 - 4)); eq(row.spokeLast, 'player'); eq(row.reply.samples, 1); eq(row.reply.medianMins, 4);
+  eq(row.flags.waiting, false, 'thirty minutes is not waiting yet'); eq(row.flags.contacted7d, true);
+  const st = up.get('ew2:chat:-5000000002'); eq(st.ev.turns.length, 3, 'twelve copies collapse, one turn per message'); ok(st.evFacts);
+  ok(up.get('ew2:meta').eventsCursor === 5 && up.get('ew2:meta').eventsCaughtUp === true, 'cursor persisted');
+  // next tick: nothing new in the stream, evFacts untouched, no re-fetch of old pages
+  api.calls.length = 0;
+  await runScan({ api, now: NOW + 5 * 60000, log: () => {}, post: slack.post, alertGapMs: 0 });
+  eq(api.calls.filter((c) => c[0] === 'events').length, 1); eq(api.calls.find((c) => c[0] === 'events')[1], 5, 'resumes from the stored cursor');
 });
 
 await t('a concurrent run is skipped while the lock is held', async () => {

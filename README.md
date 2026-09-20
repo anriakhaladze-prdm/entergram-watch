@@ -13,8 +13,9 @@ a Vercel cron every five minutes.
 | Churn signal | A player's own messages read as at risk (unresolved withdrawal, scam accusation, naming a rival, saying goodbye) and nobody has answered yet | Once, then again only for a newer message at least a week later. `URGENT_ALERTS=off` disables it |
 
 Everything else lives on the dashboard: players waiting on a reply, players not
-answering our outreach, dormant players, players who left, chats whose host no
-longer hosts.
+answering our outreach, players who left, chats whose host no longer hosts. A
+chat with no message either way for 20 days is time-barred: out of the
+worklist, off the alerts, in its own tab.
 
 Posting is paced at one message a second, honours `Retry-After`, and is capped
 per run (`MAX_ALERTS_PER_RUN`, default 15) with one overflow line pointing at
@@ -31,9 +32,10 @@ median and p90 time to first reply. Every figure opens the matching set in the
 queue. A by-host table, the distribution of days since we last spoke, mood,
 state, reply-time distribution and a daily trend.
 
-**Queue.** The worklist. Filters are URL parameters, so any view is a link:
-`/queue?f=no_contact`, `/queue?host=Colton`, `/queue?f=hosted&mood=at_risk`,
-`/queue?chat=<telegram id>`. Clicking a row opens the player: host and their
+**Queue.** Three tabs: Active (the worklist), Time-barred, Left and
+unhosted. Filters are URL parameters, so any view is a link:
+`/queue?f=no_contact`, `/queue?host=Colton`, `/queue?mood=at_risk`,
+`/queue?tab=barred`, `/queue?chat=<telegram id>`. Clicking a row opens the player: host and their
 share of our messages, when each side last spoke, reply times, sentiment with
 the quote it was read from, alerts sent, and the recent conversation read live
 from Entergram (never stored).
@@ -72,9 +74,19 @@ to nobody.
 last staff message, whether the player closed the exchange, whether the player
 left, host, reply times) and those are persisted per chat. The state a chat is
 in is derived from facts and the clock on every tick, so it never flips between
-runs and never needs a re-read to update. Without readable history the chat
-list still says who spoke last: a last message from us dates our silence
-exactly, a last message from the player bounds it from below.
+runs and never needs a re-read to update.
+
+**The event stream.** History can only be read for groups the reader account
+belongs to. `/v1/events` has no such limit: every message in the workspace
+appears there once per connected account that can see it, with the chat, the
+sender's Telegram id, the time and the direction, and no text. The scan
+follows it by cursor a few pages per tick (a first run backfills
+`EVENTS_BACKFILL_DAYS`), collapses the per-account copies on chat, time and
+sender, and keeps the last 80 turns per player chat. For groups whose text is
+unreadable that gives who spoke last, reply times and the host; what it cannot
+give is acknowledgements, departures and sentiment. Chats with neither history
+nor stream turns fall back to the chat list, where a last message from us dates
+our silence exactly and a last message from the player bounds it from below.
 
 **Acknowledgements.** A player signing off with thanks is not waiting on a
 reply, and a thank-you does not open a reply-time window.
@@ -157,7 +169,8 @@ keys; keys from the previous version expire on their own.
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Set by the Upstash integration |
 | `QUIET_DAYS` | Default 7 |
 | `UNANSWERED_HOURS` | Default 12 |
-| `DORMANT_DAYS` | Default 90 |
+| `TIME_BARRED_DAYS` | Default 20 |
+| `EVENTS_PAGES_PER_TICK` / `EVENTS_BACKFILL_DAYS` | Event stream pages per tick and how far the first run backfills, default 25 / 10 |
 | `URGENT_ALERTS` | `on` (default) or `off` |
 | `MAX_ALERTS_PER_RUN` | Default 15 |
 | `OUTAGE_ALERT_AFTER_FAILURES` | Default 3 |

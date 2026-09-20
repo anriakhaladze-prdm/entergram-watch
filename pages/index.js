@@ -25,7 +25,7 @@ export default function Overview() {
   useEffect(() => { if (snap) fetch('/api/history').then((r) => (r.ok ? r.json() : null)).then(setHistory).catch(() => {}); }, [snap?.generatedAt]);
 
   const m = useMemo(() => {
-    const hosted = rows.filter((r) => !r.flags.left && !r.flags.unhosted);
+    const hosted = rows.filter((r) => !r.flags.left && !r.flags.unhosted && !r.flags.barred);
     const byHost = new Map();
     for (const r of hosted) {
       const k = r.host || 'unattributed';
@@ -38,7 +38,7 @@ export default function Overview() {
       return {
         host, players: list.length,
         contacted: list.filter((r) => r.flags.contacted7d).length, known,
-        no_contact: list.filter((r) => r.flags.no_contact && !r.flags.dormant).length,
+        no_contact: list.filter((r) => r.flags.no_contact && !r.flags.barred).length,
         waiting: list.filter((r) => r.flags.waiting).length,
         unhappy: list.filter((r) => r.flags.unhappy).length,
         reply: replies.length ? replies[Math.floor(replies.length / 2)] : null,
@@ -61,11 +61,11 @@ export default function Overview() {
   }
 
   const tiles = [
-    { key: 'hosted', label: 'Hosted players', value: summary.hosted, sub: `${summary.total} player chats, ${summary.left} left, ${summary.unhosted} unhosted`, href: queueHref({ f: 'hosted' }) },
-    { key: 'cov', label: 'Contacted in last 7 days', value: pct(summary.contacted7d, summary.contactKnown), tone: 'green', sub: `${summary.contacted7d} of ${summary.contactKnown} known${summary.hosted - summary.contactKnown ? `, ${summary.hosted - summary.contactKnown} unknown` : ''}`, href: queueHref({ f: 'contacted' }) },
-    { key: 'nc', label: 'No contact 7d+', value: summary.noContact7d, tone: summary.noContact7d ? 'yellow' : 'green', sub: 'Slack alert lane · dormant excluded', href: queueHref({ f: 'no_contact' }) },
+    { key: 'hosted', label: 'Active players', value: summary.active, sub: `${summary.total} chats · ${summary.barred} time-barred · ${summary.left} left · ${summary.unhosted} unhosted`, href: queueHref({ tab: 'active' }) },
+    { key: 'cov', label: 'Contacted in last 7 days', value: pct(summary.contacted7d, summary.contactKnown), tone: 'green', sub: `${summary.contacted7d} of ${summary.contactKnown} known${summary.active - summary.contactKnown ? `, ${summary.active - summary.contactKnown} unknown` : ''}`, href: queueHref({ f: 'contacted' }) },
+    { key: 'nc', label: 'No contact 7d+', value: summary.noContact7d, tone: summary.noContact7d ? 'yellow' : 'green', sub: 'Slack alert lane · time-barred excluded', href: queueHref({ f: 'no_contact' }) },
     { key: 'wait', label: 'Waiting on a reply', value: summary.waiting, tone: summary.waiting ? 'orange' : 'green', sub: summary.waiting ? `longest wait ${age(summary.waitingOldestDays)}` : 'every message answered', href: queueHref({ f: 'waiting' }) },
-    { key: 'unhappy', label: 'Unhappy', value: summary.unhappy, tone: summary.unhappy ? 'red' : 'green', sub: `${m.scored} of ${summary.hosted} scored`, href: queueHref({ f: 'hosted', mood: 'at_risk' }) },
+    { key: 'unhappy', label: 'Unhappy', value: summary.unhappy, tone: summary.unhappy ? 'red' : 'green', sub: `${m.scored} of ${summary.active} scored`, href: queueHref({ mood: 'at_risk' }) },
     { key: 'reply', label: 'Median first reply', value: mins(summary.replyMedianMins), sub: summary.replyMeasured ? `p90 ${mins(summary.replyP90Mins)} · ${summary.replyMeasured} chats measured` : 'no exchanges measured yet', href: '/hosts' },
   ];
 
@@ -80,8 +80,9 @@ export default function Overview() {
             {run?.alertError ? ` · ${run.alertError}` : ''}
           </span>
           <span className="ow-strip-sub typ-label-small">
-            {summary.historyRead} of {summary.total} chats with readable history
-            {summary.historyUnavailable ? <>, <Link className="th-link" href={queueHref({ f: 'unavailable' })}>{summary.historyUnavailable} not readable</Link></> : null}
+            {summary.historyRead} chats with readable history
+            {summary.historyEvents ? <>, <Link className="th-link" href={queueHref({ f: 'events' })}>{summary.historyEvents} from the event stream</Link></> : null}
+            {summary.historyUnavailable ? <>, <Link className="th-link" href={queueHref({ f: 'unavailable' })}>{summary.historyUnavailable} timing only</Link></> : null}
             {summary.historyPending ? `, ${summary.historyPending} queued` : ''}
             {' · '}<Link className="th-link" href="/activity">activity</Link>
           </span>
@@ -118,14 +119,14 @@ export default function Overview() {
 
         <div className="ow-section-head">
           <span className="ow-section-title typ-label-small">Where the book sits</span>
-          <span className="ow-section-sub typ-label-small">{summary.hosted} hosted players</span>
+          <span className="ow-section-sub typ-label-small">{summary.active} active players</span>
         </div>
         <div className="ow-charts">
           <Histogram title="Days since we last spoke" sub="hosted players" buckets={m.silence} tone="yellow" />
           <BarList title="Mood" sub={m.scored ? `${m.scored} scored` : 'nothing scored yet'} rows={m.moods} />
         </div>
         <div className="ow-charts">
-          <BarList title="State" sub="one state per player" rows={STATES.map((st) => ({ key: st.key, label: st.label, value: summary.counts[st.key] || 0, tone: st.tone, href: queueHref({ f: st.key }) }))} />
+          <BarList title="State" sub="one state per player" rows={STATES.map((st) => ({ key: st.key, label: st.label, value: summary.counts[st.key] || 0, tone: st.tone, href: queueHref(st.key === 'barred' ? { tab: 'barred' } : st.key === 'left' || st.key === 'unhosted' ? { tab: 'gone', f: st.key } : { f: st.key }) }))} />
           {summary.replyMeasured ? <Histogram title="Time to first reply" sub={`median ${mins(summary.replyMedianMins)} · p90 ${mins(summary.replyP90Mins)}`} buckets={m.reply} tone="green" /> : null}
         </div>
 
