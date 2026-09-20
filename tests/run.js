@@ -5,12 +5,13 @@ import { extractFacts, normalizeMessage, isAcknowledgement, departureTarget, dep
 import { deriveRow, summarize } from '../lib/derive.js';
 import { dueAlerts, orderAlerts, formatAlert, prettyTier } from '../lib/alerts.js';
 import { identify, isStaffSender, ownerOfAccount, useLearnedStaff } from '../lib/team.js';
-import { ruleScan, detectProvider } from '../lib/sentiment.js';
+import { ruleScan, detectProvider, selectWindow } from '../lib/sentiment.js';
 import { postSlack, postSequence, RateLimited } from '../lib/slack.js';
 import { runScan, updateTally, learnedStaff } from '../lib/scan.js';
 import * as kv from '../lib/state.js';
 import { fakeUpstash, fakeEntergram, fakeSlack } from './fakes.js';
 
+const NEGATIVE_LABELS = new Set(['negative', 'at_risk']);
 let pass = 0, fail = 0;
 const t = async (name, fn) => { try { await fn(); pass++; } catch (e) { fail++; console.error(`FAIL ${name}\n     ${e.stack?.split('\n').slice(0, 3).join('\n     ') || e.message}`); } };
 const eq = (a, b, m = '') => { if (a !== b) throw new Error(`${m} expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`); };
@@ -222,13 +223,50 @@ await t('alert text names the player, the host, both silences and the dashboard 
   eq(prettyTier('emerald_3'), 'Emerald III');
 });
 
-// --- sentiment rules -------------------------------------------------------------
+// --- sentiment ---------------------------------------------------------------------
 await t('rules flag the unambiguous cases and stay neutral otherwise', () => {
   eq(ruleScan(['my withdrawal has been pending for 3 days']).label, 'negative');
   eq(ruleScan(['this is a scam, im done']).label, 'at_risk');
   eq(ruleScan(['thanks legend, appreciate it']).label, 'positive');
   eq(ruleScan(['can I get a reload']).label, 'neutral');
   eq(detectProvider({}), null); eq(detectProvider({ OPENAI_API_KEY: 'k' }), 'openai'); eq(detectProvider({ ANTHROPIC_API_KEY: 'k' }), 'anthropic');
+});
+await t('a complaint in the last message is never cancelled by earlier thanks', () => {
+  // newest first: the player left after this
+  const r = ruleScan(['taking all my money', 'thanks bro', 'thank you legend', 'appreciate it']);
+  ok(r.label === 'negative' || r.label === 'at_risk', `got ${r.label}`);
+  ok(r.flags.includes('money_taken'), r.flags.join());
+  eq(ruleScan(['ok thanks', 'where is my withdrawal', 'hey']).label, 'neutral', 'an old complaint that was closed out with thanks is neutral');
+  eq(ruleScan(['leave me alone', 'stop messaging me']).label, 'at_risk');
+});
+await t('the sentiment window is the exchange around the last player message', () => {
+  const at = (min) => new Date(NOW - min * 60000).toISOString();
+  const msgs = [
+    { date: at(3000), side: 'player', text: 'thanks for last week' },
+    { date: at(2990), side: 'staff', text: 'anytime' },
+    { date: at(70), side: 'player', text: 'hey any reload' },
+    { date: at(55), side: 'staff', text: 'nothing available right now' },
+    { date: at(50), side: 'player', text: 'seriously?' },
+    { date: at(48), side: 'staff', text: 'sorry bro' },
+    { date: at(40), side: 'player', text: 'taking all my money' },
+    { date: at(20), side: 'staff', text: 'let me see what I can do' },
+  ];
+  const w = selectWindow(msgs);
+  eq(w[0].text, 'hey any reload', 'starts within the hour before the last player message');
+  eq(w[w.length - 1].text, 'taking all my money', 'ends at the last player message, host lines after it are not evidence');
+  eq(w.filter((m) => m.side === 'staff').length, 2, 'host lines inside the window stay as context');
+  const few = selectWindow([{ date: at(9000), side: 'player', text: 'a' }, { date: at(8000), side: 'player', text: 'b' }, { date: at(10), side: 'player', text: 'c' }]);
+  eq(few.length, 3, 'never fewer than the last three player messages');
+});
+await t('facts carry the window and the quote is the last thing the player said', () => {
+  const { facts, window, playerTexts, playerQuote } = extractFacts([
+    msg(20, PLAYER, { text: 'thanks legend' }), msg(19.99, COLTON, { text: 'anytime' }),
+    msg(0.05, PLAYER, { text: 'you keep taking all my money' }), msg(0.04, COLTON, { text: 'sorry to hear' }),
+  ], { player: 'testplayer', now: NOW });
+  eq(playerQuote, 'you keep taking all my money'); eq(playerTexts[0], 'you keep taking all my money');
+  eq(window[window.length - 1].side, 'player');
+  ok(NEGATIVE_LABELS.has(ruleScan(playerTexts).label));
+  ok(facts.lastPlayerAt);
 });
 
 // --- slack pacing ---------------------------------------------------------------

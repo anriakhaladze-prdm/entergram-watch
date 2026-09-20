@@ -79,10 +79,15 @@ exactly, a last message from the player bounds it from below.
 **Acknowledgements.** A player signing off with thanks is not waiting on a
 reply, and a thank-you does not open a reply-time window.
 
-**Sentiment.** Rules on every chat with fresh player text, a model only on
-chats whose player has said something new, from the player's messages only.
-Text is passed to the model and dropped; only the label, reason and one short
-quote are stored.
+**Sentiment.** Read from the end of the conversation: the exchange in the
+hour before the player's last message, never fewer than their last three
+messages, and nothing after it. Rules run on that window with the newest
+message weighted most, and a complaint in the last message is never cancelled
+by an earlier thank-you. The model reads the same exchange in order, with the
+host's lines marked as context, and judges the player's mood at the end of it;
+chats that only got the rules are caught up on later ticks. Text is passed to
+the model and dropped; only the label, the reason and the line the verdict
+rests on are stored.
 
 ## The scan
 
@@ -162,6 +167,7 @@ keys; keys from the previous version expire on their own.
 | `STAFF_MIN_CHATS` | Distinct groups before an unknown sender counts as staff, default 6 |
 | `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` | Sentiment. Whichever is set picks the provider |
 | `SENTIMENT_BUDGET` | Model-scored chats per run, default 40 |
+| `SENTIMENT_WINDOW_MINUTES` / `SENTIMENT_MIN_MESSAGES` | The exchange the mood is read from: minutes before the player's last message, minimum player messages. Default 60 / 3 |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | SSO |
 | `NEXTAUTH_SECRET` / `NEXTAUTH_URL` | SSO session signing and callback base |
 | `ALLOWED_HD` | Default paradym.io |
