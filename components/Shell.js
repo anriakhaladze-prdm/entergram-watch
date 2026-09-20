@@ -11,7 +11,6 @@ import { fmtAge } from './useSnapshot';
 const NAV = [
   { href: '/', label: 'Overview', glyph: 'chart' },
   { href: '/queue', label: 'Queue', glyph: 'warn' },
-  { href: '/hosts', label: 'Hosts', glyph: 'user' },
   { href: '/activity', label: 'Activity', glyph: 'info' },
 ];
 

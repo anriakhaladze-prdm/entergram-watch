@@ -13,9 +13,9 @@ a Vercel cron every five minutes.
 | Churn signal | A player's own messages read as at risk (unresolved withdrawal, scam accusation, naming a rival, saying goodbye) and nobody has answered yet | Once, then again only for a newer message at least a week later. `URGENT_ALERTS=off` disables it |
 
 Everything else lives on the dashboard: players waiting on a reply, players not
-answering our outreach, players who left, chats whose host no longer hosts. A
-chat with no message either way for 20 days is time-barred: out of the
-worklist, off the alerts, in its own tab.
+answering our outreach, players who left. A chat with no message either way
+for 20 days is time-barred: out of the worklist, off the alerts, in its own
+tab.
 
 Posting is paced at one message a second, honours `Retry-After`, and is capped
 per run (`MAX_ALERTS_PER_RUN`, default 15) with one overflow line pointing at
@@ -26,27 +26,23 @@ line after the seed post.
 
 ## What the dashboard shows
 
-**Overview.** Hosted players, share contacted in the last seven days, players
+**Overview.** Active players, share contacted in the last seven days, players
 past seven days without contact, players waiting on a reply, unhappy players,
 median and p90 time to first reply. Every figure opens the matching set in the
-queue. A by-host table, the distribution of days since we last spoke, mood,
-state, reply-time distribution and a daily trend.
+queue. The distribution of days since we last spoke, mood, state, reply-time
+distribution and a daily trend.
 
-**Queue.** Three tabs: Active (the worklist), Time-barred, Left and
-unhosted. Filters are URL parameters, so any view is a link:
-`/queue?f=no_contact`, `/queue?host=Colton`, `/queue?mood=at_risk`,
-`/queue?tab=barred`, `/queue?chat=<telegram id>`. Clicking a row opens the player: host and their
-share of our messages, when each side last spoke, reply times, sentiment with
-the quote it was read from, alerts sent, and the recent conversation read live
-from Entergram (never stored).
-
-**Hosts.** Per person: players, contacted in seven days, no contact, waiting,
-unhappy, ignoring, median and p90 reply. Plus unattributed players, unhosted
-chats and unreadable groups. Senders that look like staff but are not in the
-team table are listed with their Telegram id.
+**Queue.** Three tabs: Active (the worklist), Time-barred, Left. Filters are
+URL parameters, so any view is a link: `/queue?f=no_contact`,
+`/queue?mood=at_risk`, `/queue?tab=barred`, `/queue?chat=<telegram id>`.
+Clicking a row opens the player: when each side last spoke and who replied,
+reply times, sentiment with the quote it was read from, alerts sent, and the
+recent conversation read live from Entergram (never stored). Entergram has no
+per-chat URL, so the Entergram button copies the chat name and opens the app
+for one paste into its search.
 
 **Activity.** Every scan with its mode, duration and outcome; every alert
-posted; consecutive failures.
+posted; consecutive failures; staff-shaped senders missing from the team table.
 
 ## How a chat is read
 
@@ -63,12 +59,9 @@ cannot tell staff from player. Every sender resolves against
 nobody in particular. A sender seen across six or more separate player groups
 is treated as staff and listed on the Hosts page until added to the table.
 
-**Host.** The hosting team member with the most messages in the group, recent
-speech first. Groups are worked as a pool, so the drawer shows every staff
-member active in the chat and the primary host's share. A chat whose only
-staff speaker no longer hosts is unhosted. Where history cannot be read, the
-owner of a personal connected account stands in; the shared account resolves
-to nobody.
+**No host.** Nobody owns a chat: whoever is on shift answers. The drawer lists
+the staff who have replied in a chat and how often, and nothing claims an
+owner.
 
 **Facts and state.** A history read establishes facts (last player message,
 last staff message, whether the player closed the exchange, whether the player
@@ -187,8 +180,7 @@ keys; keys from the previous version expire on their own.
 
 ## Team table
 
-`config/team.json` is the single source of truth for who is staff and who
-hosts. Each member carries `telegramUserIds`, `senderNames`,
-`telegramUsernames`, personal `accounts`, and `hosting: false` for staff whose
-messages are ours but who never become a player's host. New hosts go here;
-the Hosts page lists unresolved senders with the id to add.
+`config/team.json` is the single source of truth for who is staff. Each member
+carries `telegramUserIds`, `senderNames`, `telegramUsernames` and personal
+`accounts`. New team members go here; the Activity page lists staff-shaped
+senders it does not recognise, with the id to add.

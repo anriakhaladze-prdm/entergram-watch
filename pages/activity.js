@@ -23,13 +23,13 @@ const ALERT_COLS = [
   { key: 'at', label: 'When', w: '150px' },
   { key: 'kind', label: 'Alert', w: '190px' },
   { key: 'player', label: 'Player', w: 'minmax(160px, 1fr)' },
-  { key: 'host', label: 'Host', w: '140px' },
   { key: 'sent', label: 'Slack', w: '90px' },
 ];
 
 export default function Activity() {
   const s = useSnapshot();
-  const { session, snap, error } = s;
+  const { session, snap, summary, error } = s;
+  const unidentified = summary?.unidentified || [];
   const router = useRouter();
   const [h, setH] = useState(null);
   useEffect(() => { fetch('/api/history').then((r) => (r.ok ? r.json() : null)).then(setH).catch(() => {}); }, [snap?.generatedAt]);
@@ -72,7 +72,6 @@ export default function Activity() {
                   {cell(when(a.at), 'ow-sub')}
                   {cell(ALERT_KINDS[a.kind]?.label || a.kind)}
                   {cell(a.player, 'ow-clip')}
-                  {cell(a.host || 'unattributed', 'ow-sub ow-clip')}
                   {cell(a.dryRun ? 'dry run' : a.ts ? 'sent' : 'logged', 'ow-sub')}
                 </div>
               ))}
@@ -109,6 +108,29 @@ export default function Activity() {
             </div>
           </div>
         </div>
+
+        {unidentified.length ? (
+          <>
+            <div className="ow-section-head">
+              <span className="ow-section-title typ-label-small">Staff senders not in the team table</span>
+              <span className="ow-section-sub typ-label-small">config/team.json</span>
+            </div>
+            <div className="th-grid-scroll ow-grid-inline">
+              <div className="th-grid" style={{ gridTemplateColumns: '200px minmax(200px, 1fr) 120px' }}>
+                <div className="th-grid-headgroup"><div className="th-grid-headrow">
+                  {['Telegram id', 'Display name', 'Groups'].map((l) => <div key={l} className="th-grid-headcell"><div><span className="th-grid-headlabel">{l}</span></div></div>)}
+                </div></div>
+                <div className="th-grid-body">
+                  {unidentified.map((u) => (
+                    <div className="th-grid-row" key={u.id}>
+                      {cell(u.id, 'ow-nums')}{cell(u.name || '–', 'ow-clip')}{cell(u.chats, 'ow-nums')}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        ) : null}
       </div>
     </Shell>
   );

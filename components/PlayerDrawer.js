@@ -24,7 +24,10 @@ export default function PlayerDrawer({ row, onClose }) {
   if (!row) return null;
   const st = STATE[row.state] || { label: row.state, tone: 'gray' };
   const mood = MOODS.find((x) => x.key === row.sentiment?.label);
-  const copyTitle = () => { navigator.clipboard?.writeText(row.title).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); };
+  const copyTitle = () => navigator.clipboard?.writeText(row.title).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {});
+  // Entergram has no per-chat URL, so the name goes on the clipboard and the
+  // app opens ready for one paste into its search.
+  const openEntergram = async () => { await copyTitle(); window.open('https://app.entergram.com/', '_blank', 'noreferrer'); };
 
   const fact = (k, v, cls = '') => (
     <div className="th-meta-cell" key={k}>
@@ -52,16 +55,14 @@ export default function PlayerDrawer({ row, onClose }) {
           </div>
           <div className="th-drawer-body">
             <div className="ow-drawer-acts">
-              {row.inviteLink ? <a className="th-pill focusable" href={row.inviteLink} target="_blank" rel="noreferrer"><Icon name="link" size={12} /><span className="th-pill-label typ-label-medium">Open in Telegram</span></a> : null}
-              <a className="th-pill focusable" href="https://app.entergram.com/" target="_blank" rel="noreferrer"><Icon name="link" size={12} /><span className="th-pill-label typ-label-medium">Open Entergram</span></a>
-              <button type="button" className="th-pill focusable" onClick={copyTitle}><Icon name="copy" size={12} /><span className="th-pill-label typ-label-medium">{copied ? 'Copied' : 'Copy chat name'}</span></button>
+              {row.inviteLink ? <a className="th-pill focusable" href={row.inviteLink} target="_blank" rel="noreferrer"><span className="th-pill-label typ-label-medium">Open in Telegram</span></a> : null}
+              <button type="button" className="th-pill focusable" onClick={openEntergram}><span className="th-pill-label typ-label-medium">{copied ? 'Name copied, paste in Entergram search' : 'Open Entergram'}</span></button>
+              <button type="button" className="th-pill focusable" onClick={copyTitle}><span className="th-pill-label typ-label-medium">Copy chat name</span></button>
             </div>
 
             <div className="ow-drawer-signal typ-paragraph-small">{row.signals?.[0] || 'in contact'}</div>
 
             <div className="th-meta">
-              {fact('Host', <>{row.host || 'unattributed'}{row.hostShare != null ? <span className="ow-sub"> · {row.hostShare}% of our messages{row.hostOthers ? `, ${row.hostOthers} other${row.hostOthers === 1 ? '' : 's'} active` : ''}</span> : null}</>, 'ow-wrap')}
-              {fact('Host source', row.hostSource)}
               {fact('We last spoke', row.lastStaffAt ? <>{age(row.staffQuietDays)} ago{row.lastStaffBy ? <span className="ow-sub"> · {row.lastStaffBy}</span> : null}</> : row.history === 'read' ? 'not in the readable history' : 'unknown')}
               {fact('Player last spoke', row.lastPlayerAt ? <>{age(row.playerQuietDays)} ago{row.ack ? <span className="ow-sub"> · closed the exchange</span> : ''}</> : 'no player message on record')}
               {fact('Any message', row.lastMessageAt ? `${age(row.quietDays)} ago` : '–')}
@@ -74,10 +75,10 @@ export default function PlayerDrawer({ row, onClose }) {
 
             {row.staffSpeakers?.length ? (
               <div className="ow-block">
-                <div className="ow-block-title typ-label-xsmall">Staff in this conversation</div>
+                <div className="ow-block-title typ-label-xsmall">Staff who have replied</div>
                 <div className="ow-speakers">
                   {row.staffSpeakers.map((sp) => (
-                    <span key={sp.id} className={`th-chip typ-label-small${sp.hosting === false ? ' ow-chip-muted' : ''}`}>{sp.name} <span className="ow-nums">{sp.msgs}</span></span>
+                    <span key={sp.id} className="th-chip typ-label-small">{sp.name} <span className="ow-nums">{sp.msgs}</span></span>
                   ))}
                 </div>
               </div>

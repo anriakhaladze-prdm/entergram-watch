@@ -10,9 +10,8 @@ import { STATES, STATE, ACTIONABLE, age, mins } from '../lib/states.js';
 // The worklist. Every filter is in the URL, so a tile on the overview, a
 // Slack alert and a host's own bookmark all open the same view.
 const COLS = [
-  { key: 'player', label: 'Player', w: 'minmax(160px, 1.2fr)', sort: 'player' },
-  { key: 'host', label: 'Host', w: '130px', sort: 'host' },
-  { key: 'state', label: 'State', w: '140px', sort: 'severity' },
+  { key: 'player', label: 'Player', w: 'minmax(180px, 1.2fr)', sort: 'player' },
+  { key: 'state', label: 'State', w: '150px', sort: 'severity' },
   { key: 'we', label: 'We spoke', w: '110px', sort: 'staffQuiet', num: true },
   { key: 'player_last', label: 'Player spoke', w: '136px', sort: 'playerQuiet', num: true },
   { key: 'silent', label: 'Silent', w: '90px', sort: 'quiet', num: true },
@@ -51,11 +50,6 @@ export default function Queue() {
 
   const inTab = useMemo(() => rows.filter((r) => tabDef.test(r)), [rows, tab]);
   const tabCounts = useMemo(() => Object.fromEntries(TABS.map((t) => [t.key, rows.filter((r) => t.test(r)).length])), [rows]);
-  const hosts = useMemo(() => {
-    const m = new Map();
-    for (const r of inTab) { const k = r.host || 'unattributed'; m.set(k, (m.get(k) || 0) + 1); }
-    return [...m.entries()].sort((a, b) => b[1] - a[1]);
-  }, [inTab]);
   const counts = useMemo(() => {
     const c = {};
     for (const r of inTab) c[r.state] = (c[r.state] || 0) + 1;
@@ -67,7 +61,7 @@ export default function Queue() {
     const filters = { ...fl, tab, f: active, q };
     const out = rows.filter((r) => matchRow(r, filters));
     const val = (r) => ({
-      severity: ORDER.indexOf(r.state), player: (r.player || '').toLowerCase(), host: (r.host || 'zz').toLowerCase(),
+      severity: ORDER.indexOf(r.state), player: (r.player || '').toLowerCase(),
       quiet: r.quietDays ?? -1, playerQuiet: r.playerQuietDays ?? -1, staffQuiet: r.noContactDays ?? r.staffQuietDays ?? -1,
       reply: r.reply?.medianMins ?? -1,
       mood: ['at_risk', 'negative', 'neutral', 'positive'].indexOf(r.sentiment?.label ?? 'neutral'),
@@ -123,17 +117,13 @@ export default function Queue() {
       {error || !snap ? <Empty error={error} /> : (
         <>
           {tabDef.states.length ? stateChips : null}
-          <div className="ow-hostbar">
-            <span className={`th-chip typ-label-small${!fl.host ? ' is-on' : ''}`} onClick={() => setParams({ host: null })} role="button" tabIndex={0}>All hosts</span>
-            {hosts.map(([h, n]) => (
-              <span key={h} className={`th-chip typ-label-small${fl.host === h ? ' is-on' : ''}`} onClick={() => setParams({ host: fl.host === h ? null : h })} role="button" tabIndex={0}>{h} <span className="ow-nums">{n}</span></span>
-            ))}
-            {(fl.mood || fl.silence || fl.reply || active.some((k) => SETS[k] && !['actionable', 'hosted', 'all'].includes(k))) ? (
+          {(fl.mood || fl.silence || fl.reply || active.some((k) => SETS[k] && !['actionable', 'hosted', 'all'].includes(k))) ? (
+            <div className="ow-hostbar">
               <span className="th-chip typ-label-small ow-chip-filter is-on" onClick={() => setParams({ mood: null, silence: null, reply: null, f: ['all'] })} role="button" tabIndex={0}>
                 {filterLabel({ ...fl, f: active.filter((k) => SETS[k] && !['actionable', 'hosted', 'all'].includes(k)) })} <Icon name="close" size={10} />
               </span>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
           <div className="th-grid-scroll">
             <div className="th-grid" style={{ gridTemplateColumns: COLS.map((c) => c.w).join(' ') }}>
               <div className="th-grid-headgroup">
@@ -155,7 +145,6 @@ export default function Queue() {
                   return (
                     <div className="th-grid-row is-link" key={r.chatId} onClick={() => setParams({ chat: r.chatId })} role="link" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setParams({ chat: r.chatId }); }}>
                       {cell(<>{r.playerUsername || r.player || r.title}{r.tier ? <span className="ow-sub ow-small"> · {String(r.tier).replace('_', ' ')}</span> : null}</>, 'ow-clip')}
-                      {cell(<>{r.host || 'unattributed'}{r.hostUnattributed ? <span className="ow-sub ow-small"> ?</span> : null}</>, 'ow-sub ow-clip')}
                       {cell(<span className={`th-badge th-badge-${st.tone} typ-label-small`}>{st.label}</span>)}
                       {cell(r.lastStaffAt ? age(r.staffQuietDays) : (r.noContactDays != null ? `${age(r.noContactDays)}+` : <span className="ow-muted">?</span>), `ow-nums${(r.noContactDays ?? 0) >= 7 ? ' ow-warn' : ''}`)}
                       {cell(r.lastPlayerAt ? age(r.playerQuietDays) : <span className="ow-muted">·</span>, `ow-nums${r.flags.waiting ? ' ow-stale' : ''}`)}

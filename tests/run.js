@@ -89,24 +89,15 @@ await t('who spoke last is decided by sender identity, never isOut', () => {
   const f = factsOf([msg(1, COLTON, { isOut: false }), msg(2, PLAYER)]);
   eq(f.lastStaffAt, ago(1)); eq(f.lastPlayerAt, ago(2)); eq(f.lastStaffBy, 'Colton');
 });
-await t('the host is the hosting member who does the talking', () => {
+await t('staff who replied are listed by message count, whoever they are', () => {
   const f = factsOf([msg(1, KYLE, { senderName: 'Kyle | Thrill VIP' }), msg(2, COLTON), msg(3, COLTON), msg(4, PLAYER), msg(5, SHARED, { senderName: 'VIP Ops' })]);
-  eq(f.host.name, 'Colton'); eq(f.host.source, 'conversation'); eq(f.host.hosting, true);
-  eq(f.host.share, 50, 'two of four staff messages'); eq(f.host.others, 1);
-  eq(f.staffSpeakers[0].name, 'Colton'); eq(f.staffSpeakers[0].msgs, 2);
+  eq(f.staffSpeakers.map((x) => `${x.name}:${x.msgs}`).join(' '), 'Colton:2 Kyle:1 VIP Ops:1');
+  ok(!('host' in f), 'no host is claimed');
 });
-await t('a book handed over follows the new host: recent speech outranks old volume', () => {
-  const f = factsOf([msg(2, KYLE, { senderName: 'Kyle | Thrill VIP' }), msg(3, KYLE, { senderName: 'Kyle | Thrill VIP' }), msg(45, COLTON), msg(46, COLTON), msg(47, COLTON), msg(48, COLTON), msg(1, PLAYER)]);
-  eq(f.host.name, 'Kyle');
-});
-await t('only the shared account speaking leaves the host unattributed but active', () => {
-  const f = factsOf([msg(1, SHARED, { senderName: 'VIP Ops' }), msg(2, PLAYER)]);
-  eq(f.host.hosting, true); eq(f.host.unattributed, true); eq(f.host.source, 'shared account');
-});
-await t('a non-hosting member as the only staff speaker makes the chat unhosted', () => {
+await t('a former host is still staff, and an old chat of theirs is simply time-barred', () => {
   const f = factsOf([msg(400, '31337', { senderName: 'Byron Thrill' }), msg(401, PLAYER)]);
-  eq(f.host.name, 'Byron Petzer'); eq(f.host.hosting, false);
-  eq(derive(chat({ lastMessageDate: ago(400) }), f).state, 'unhosted');
+  eq(f.lastStaffBy, 'Byron Petzer'); eq(f.staffSpeakers[0].name, 'Byron Petzer');
+  eq(derive(chat({ lastMessageDate: ago(400) }), f).state, 'barred');
 });
 await t('acknowledgements close an exchange, questions and complaints do not', () => {
   eq(isAcknowledgement('thanks!'), true); eq(isAcknowledgement("I'd appreciate it. Thank you"), true); eq(isAcknowledgement('gg'), true);
@@ -152,7 +143,7 @@ await t('20 days of silence is time-barred, not no_contact, and 19 is still no_c
 });
 await t('without history, a last message from staff dates our silence exactly', () => {
   const r = derive(chat({ lastMessageDate: ago(9), lastMessage: { date: ago(9), isOut: false, sender: { id: COLTON } } }), null);
-  eq(r.history, 'pending'); eq(r.spokeLast, 'staff'); eq(Math.round(r.noContactDays), 9); eq(r.state, 'no_contact'); eq(r.host, 'VIP Ops', 'shared account, unattributed');
+  eq(r.history, 'pending'); eq(r.spokeLast, 'staff'); eq(Math.round(r.noContactDays), 9); eq(r.state, 'no_contact');
 });
 await t('without history, a recent player message leaves our silence unknown, an old one bounds it', () => {
   const recent = derive(chat({ lastMessageDate: ago(2) }), null);
@@ -165,24 +156,22 @@ await t('a message newer than the last history read is attributed from the chat 
   const r = derive(chat({ lastMessageDate: ago(1), lastMessage: { date: ago(1), isOut: false, sender: { id: COLTON } } }), f);
   eq(r.lastStaffAt, ago(1)); eq(r.state, 'ignored', 'we posted a day ago into a player silent ten days'); eq(r.flags.contacted7d, true); eq(r.flags.no_contact, false);
 });
-await t('the host for an unread chat comes from a personal connected account', () => {
-  const r = derive(chat({ connectedAccount: { id: 'x', username: 'ColtonThrill' } }), null);
-  eq(r.host, 'Colton'); eq(r.hostSource, 'account owner');
+await t('an unread chat under a former host account with no activity is time-barred, not a special case', () => {
   const b = derive(chat({ connectedAccount: { id: 'y', username: 'byronthrill' }, lastMessageDate: ago(400) }), null);
-  eq(b.state, 'unhosted');
+  eq(b.state, 'barred'); eq(b.flags.barred, true);
 });
 await t('negative sentiment promotes an otherwise fine row to unhappy', () => {
   const r = derive(chat(), factsOf([msg(0.2, COLTON), msg(0.5, PLAYER)]), { sentiment: { label: 'at_risk', reason: 'withdrawal stuck, moving to Stake' } });
   eq(r.state, 'unhappy'); eq(r.flags.unhappy, true);
 });
-await t('summary counts hosted players and coverage', () => {
+await t('summary counts active players and coverage, time-barred aside', () => {
   const rows = [
     derive(chat({ telegramId: '-1' }), factsOf([msg(1, COLTON), msg(2, PLAYER)])),
     derive(chat({ telegramId: '-2', lastMessageDate: ago(8) }), factsOf([msg(8, PLAYER, { text: 'ok' }), msg(9, COLTON)])),
     derive(chat({ telegramId: '-3', connectedAccount: { id: 'y', username: 'byronthrill' }, lastMessageDate: ago(400) }), null),
   ];
   const s = summarize(rows);
-  eq(s.total, 3); eq(s.hosted, 2); eq(s.unhosted, 1); eq(s.noContact7d, 1); eq(s.contacted7d, 1); eq(s.contactKnown, 2);
+  eq(s.total, 3); eq(s.hosted, 3); eq(s.active, 2); eq(s.barred, 1); eq(s.noContact7d, 1); eq(s.contacted7d, 1); eq(s.contactKnown, 2);
 });
 
 // --- alert policy --------------------------------------------------------------
@@ -217,11 +206,11 @@ await t('ordering puts urgent first, then the freshest silences', () => {
   const a = { kind: 'no_contact', row: { noContactDays: 30 } }, b = { kind: 'urgent', row: {} }, c = { kind: 'no_contact', row: { noContactDays: 7.1 } };
   eq(orderAlerts([a, b, c]).map((x) => x.row.noContactDays ?? 'u').join(','), 'u,7.1,30');
 });
-await t('alert text names the player, the host, both silences and the dashboard link', () => {
+await t('alert text names the player, both silences and the dashboard link, and no host', () => {
   const r = derive(chat({ lastMessageDate: ago(8) }), factsOf([msg(8, COLTON), msg(9, PLAYER)]), { custom: { tier: 'diamond_1' } });
   const text = formatAlert('no_contact', r, { env: { DASHBOARD_URL: 'https://x.test/' } });
   ok(text.includes('7 days without contact'), text); ok(text.includes('testplayer'), text); ok(text.includes('Diamond I'), text);
-  ok(text.includes('Host Colton'), text); ok(text.includes('we last spoke 8d ago (Colton)'), text); ok(text.includes('player last spoke 9d ago'), text);
+  ok(!text.includes('Host'), text); ok(text.includes('we last spoke 8d ago (Colton)'), text); ok(text.includes('player last spoke 9d ago'), text);
   ok(text.includes('https://x.test/queue?chat=-5000000001'), text);
   eq(prettyTier('emerald_3'), 'Emerald III');
 });
@@ -301,14 +290,14 @@ await t('the same message seen by twelve accounts is one turn', () => {
   applyEvent(ev, { occurredAt: new Date(NOW - 20000).toISOString(), senderId: '424242', isOut: true, connectedAccountId: 'colton-acct' });
   eq(ev.turns.length, 3); eq(ev.turns[1].s, 'staff', 'known staff id'); eq(ev.turns[2].s, 'staff', 'isOut from any account is ours');
 });
-await t('facts from the stream give timing, host and reply times, and never text-based facts', () => {
+await t('facts from the stream give timing, who replied and reply times, and never text-based facts', () => {
   const ev = emptyEv();
   for (const e of [evt('-1', 300, PLAYER), evt('-1', 290, COLTON), evt('-1', 289, COLTON), evt('-1', 100, PLAYER), evt('-1', 95, KYLE), evt('-1', 10, PLAYER)]) applyEvent(ev, e);
-  const f = factsFromEvents(ev, { now: NOW });
-  eq(f.source, 'events'); eq(f.host.name, 'Colton'); eq(f.host.others, 1); eq(f.reply.samples, 2); eq(f.reply.medianMins, 10);
+  const f = factsFromEvents(ev);
+  eq(f.source, 'events'); eq(f.staffSpeakers.map((x) => x.name).join(','), 'Colton,Kyle'); eq(f.reply.samples, 2); eq(f.reply.medianMins, 10);
   eq(f.lastPlayerAt, new Date(NOW - 10 * 60000).toISOString()); eq(f.lastPlayerAck, null); eq(f.playerLeftAt, null);
   const row = deriveRow(chatMeta({ ...chat({ lastMessageDate: new Date(NOW - 10 * 60000).toISOString(), lastMessage: { date: new Date(NOW - 10 * 60000).toISOString(), sender: { id: PLAYER } } }), accounts: ['ColtonThrill'] }), { evFacts: f, historyUnavailable: true }, { now: NOW });
-  eq(row.history, 'events'); eq(row.host, 'Colton'); eq(row.spokeLast, 'player'); eq(row.flags.left, false); eq(row.reply.samples, 2);
+  eq(row.history, 'events'); eq(row.lastStaffBy, 'Kyle'); eq(row.spokeLast, 'player'); eq(row.flags.left, false); eq(row.reply.samples, 2);
 });
 await t('ingestEvents follows the cursor, keeps only book chats, and reports when caught up', async () => {
   const pages = [
@@ -366,7 +355,7 @@ await t('first run seeds the backlog silently, builds the book once per group, a
   const meta = up.get('ew2:meta'); ok(meta.seededAt, 'seeded'); ok(meta.lastFullAt);
   const book = await kv.getBook(); eq(book.chats.length, 7);
   const s5 = up.get('ew2:chat:-5000000005'); ok(s5.alerts.no_contact.seeded, 'seeded record');
-  ok(s5.facts, 'history read'); eq(s5.facts.host.name, 'Colton');
+  ok(s5.facts, 'history read'); eq(s5.facts.staffSpeakers[0].name, 'Colton');
   const snap = await kv.getSnapshot(); eq(snap.rows.length, 7); eq(snap.summary.hosted, 7);
 });
 
@@ -395,7 +384,7 @@ await t('a player crossing seven days after the seed alerts exactly once, then r
   let r = await runScan({ api, now, mode: 'full', log: () => {}, post: slack.post, alertGapMs: 0 });
   eq(r.due, 3, 'players 1 to 3 crossed'); eq(r.posted, 3);
   eq(slack.posts.length, 4);
-  ok(slack.posts[1].includes('7 days without contact'), slack.posts[1]); ok(slack.posts[1].includes('Host Colton'), slack.posts[1]);
+  ok(slack.posts[1].includes('7 days without contact'), slack.posts[1]); ok(slack.posts[1].includes('we last spoke'), slack.posts[1]);
   const rec = up.get('ew2:chat:-5000000001').alerts.no_contact; ok(rec.at && !rec.seeded, 'recorded as posted');
   // Next tick: same silence, nothing new.
   r = await runScan({ api, now: now + 5 * 60000, mode: 'full', log: () => {}, post: slack.post, alertGapMs: 0 });
@@ -463,7 +452,7 @@ await t('an unreadable group gets its timing from the event stream and is classi
   const slack = fakeSlack();
   const r = await runScan({ api, now: NOW, log: () => {}, post: slack.post, alertGapMs: 0 });
   const row = r.rows.find((x) => x.chatId === '-5000000002');
-  eq(row.history, 'events'); eq(row.host, 'Colton'); eq(row.hostSource, 'conversation');
+  eq(row.history, 'events'); eq(row.lastStaffBy, 'Colton');
   eq(row.lastStaffAt, T(3 * 1440 - 4)); eq(row.spokeLast, 'player'); eq(row.reply.samples, 1); eq(row.reply.medianMins, 4);
   eq(row.flags.waiting, false, 'thirty minutes is not waiting yet'); eq(row.flags.contacted7d, true);
   const st = up.get('ew2:chat:-5000000002'); eq(st.ev.turns.length, 3, 'twelve copies collapse, one turn per message'); ok(st.evFacts);
