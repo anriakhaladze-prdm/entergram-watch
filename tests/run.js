@@ -1,262 +1,397 @@
-// Regression tests for the rules that decide whether a human gets pinged.
-import { analyzeChat } from '../lib/analyze.js';
-import { isPlayerChat, playerNameFromTitle } from '../lib/scope.js';
-import { formatAlert } from '../lib/format.js';
-import { ruleScan, mergeSentiment, detectProvider } from '../lib/sentiment.js';
+// Regression tests for the rules that decide whether a human gets pinged, and
+// for the scan itself, run end to end against in-memory doubles.
+import { isPlayerChat, playerNameFromTitle, dedupeChats, chatMeta } from '../lib/scope.js';
+import { extractFacts, normalizeMessage, isAcknowledgement, departureTarget, departureIsPlayer } from '../lib/facts.js';
+import { deriveRow, summarize } from '../lib/derive.js';
+import { dueAlerts, orderAlerts, formatAlert, prettyTier } from '../lib/alerts.js';
+import { identify, isStaffSender, ownerOfAccount, useLearnedStaff } from '../lib/team.js';
+import { ruleScan, detectProvider } from '../lib/sentiment.js';
+import { postSlack, postSequence, RateLimited } from '../lib/slack.js';
+import { runScan, updateTally, learnedStaff } from '../lib/scan.js';
+import * as kv from '../lib/state.js';
+import { fakeUpstash, fakeEntergram, fakeSlack } from './fakes.js';
 
 let pass = 0, fail = 0;
-const t = (name, fn) => { try { fn(); pass++; } catch (e) { fail++; console.error(`FAIL ${name}\n     ${e.message}`); } };
+const t = async (name, fn) => { try { await fn(); pass++; } catch (e) { fail++; console.error(`FAIL ${name}\n     ${e.stack?.split('\n').slice(0, 3).join('\n     ') || e.message}`); } };
 const eq = (a, b, m = '') => { if (a !== b) throw new Error(`${m} expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`); };
+const ok = (v, m = '') => { if (!v) throw new Error(`${m} expected truthy, got ${JSON.stringify(v)}`); };
 
-const NOW = Date.parse('2026-09-18T12:00:00Z');
+const NOW = Date.parse('2026-09-21T00:00:00Z');
 const ago = (days) => new Date(NOW - days * 86400000).toISOString();
-const STAFF = '8268223773';   // Colton
-const PLAYER = '1352398121';
-const chat = (over = {}) => ({
-  id: 'uuid', telegramId: '-5000000001', title: 'testplayer x Thrill.com', type: 'group',
-  membersCount: 8, connectedAccount: { id: 'cmrxpn5sm07tzqq1lsw847ply', username: 'ColtonThrill' },
-  lastMessageDate: ago(1), lastMessage: { date: ago(1), sender: { id: PLAYER } }, ...over,
-});
-const msg = (days, senderId, over = {}) => ({ date: ago(days), senderId, isOut: false, actionType: null, senderName: null, ...over });
+const COLTON = '8268223773', KYLE = '7973277038', PRIEST = '8120203444', SHARED = '8797108490', PLAYER = '1352398121';
 
-// --- scope ---------------------------------------------------------------
-t('player chats are recognised in both title orderings', () => {
+const chat = (over = {}) => ({
+  id: 'uuid-1', telegramId: '-5000000001', title: 'testplayer x Thrill.com', type: 'group', membersCount: 8,
+  connectedAccount: { id: 'acct-vipops', username: 'Thrill_VIP_Ops' },
+  lastMessageDate: ago(1), lastMessage: { date: ago(1), isOut: false, sender: { id: PLAYER, displayName: null } }, ...over,
+});
+const msg = (days, senderId, over = {}) => normalizeMessage({ id: Math.floor(Math.random() * 1e6), date: ago(days), isOut: false, sender: { id: senderId, name: senderId === COLTON ? 'Colton | Thrill VIP' : senderId === PLAYER ? '#' : null }, text: 'hello there friend', ...over });
+const derive = (c, facts, extra = {}) => deriveRow(chatMeta({ ...c, accounts: [c.connectedAccount.username] }), facts ? { facts, ...extra } : (Object.keys(extra).length ? extra : null), { now: NOW, quietDays: 7, unansweredHours: 12 });
+const factsOf = (msgs, player = 'testplayer') => extractFacts(msgs, { player, now: NOW }).facts;
+
+// --- scope -------------------------------------------------------------------
+await t('player chats are recognised in both title orderings', () => {
   eq(isPlayerChat(chat({ title: 'swish718 x Thrill.com' })), true);
   eq(isPlayerChat(chat({ title: 'Thrill.com x Shrimpmoneyy VIP' })), true);
 });
-t('affiliate and partnership rooms are not player chats', () => {
+await t('affiliate and partnership rooms and big communities are not player chats', () => {
   eq(isPlayerChat(chat({ title: '(AFF) ID 80281 x BCGAME' })), false);
   eq(isPlayerChat(chat({ title: 'Thrill <> Nbavipbox Partnership (85029)' })), false);
+  eq(isPlayerChat(chat({ title: 'BetBodya x Thrill', membersCount: 5989 })), false);
 });
-t('community groups are excluded by size', () => eq(isPlayerChat(chat({ title: 'BetBodya x Thrill', membersCount: 5989 })), false));
-t('player name is extracted', () => eq(playerNameFromTitle('swish718 x Thrill.com'), 'swish718'));
-
-// --- the rules -----------------------------------------------------------
-t('a player message with no reply is waiting_on_us', () => {
-  const r = analyzeChat(chat(), { messages: [msg(2, PLAYER), msg(5, STAFF)], now: NOW, expectedMembers: 8 });
-  eq(r.state, 'waiting_on_us');
-  eq(Math.round(r.playerQuietDays), 2);
-  eq(Math.round(r.staffQuietDays), 5);
-});
-t('silence both ways past the threshold is quiet', () => {
-  const r = analyzeChat(chat({ lastMessageDate: ago(9), lastMessage: { date: ago(9), sender: { id: STAFF } } }),
-    { messages: [msg(9, STAFF), msg(10, PLAYER)], now: NOW, expectedMembers: 8 });
-  eq(r.state, 'quiet');
-});
-t('a host still posting into a silent player is outreach_ignored', () => {
-  const r = analyzeChat(chat({ lastMessageDate: ago(2), lastMessage: { date: ago(2), sender: { id: STAFF } } }),
-    { messages: [msg(2, STAFF), msg(40, PLAYER)], now: NOW, expectedMembers: 8 });
-  eq(r.state, 'outreach_ignored');
-  eq(Math.round(r.playerQuietDays), 40);
-});
-t('isOut is never used to decide who spoke: a staff message reads as staff even when isOut is false', () => {
-  const r = analyzeChat(chat(), { messages: [msg(1, STAFF, { isOut: false })], now: NOW, expectedMembers: 8 });
-  eq(r.spokeLast, 'staff');
-});
-t('an unrostered staff member is caught by the naming convention', () => {
-  const r = analyzeChat(chat(), { messages: [msg(1, '999999', { senderName: 'Newhost | Thrill VIP' })], now: NOW, expectedMembers: 8 });
-  eq(r.spokeLast, 'staff');
-  eq(r.playerSeen, false);
-});
-t('a player named thrillseeker is still a player', () => {
-  const r = analyzeChat(chat(), { messages: [msg(1, '999999', { senderName: 'thrillseeker99' })], now: NOW, expectedMembers: 8 });
-  eq(r.spokeLast, 'player');
+await t('player name is extracted', () => { eq(playerNameFromTitle('swish718 x Thrill.com'), 'swish718'); eq(playerNameFromTitle('Thrill.com x Shrimpmoneyy VIP'), 'Shrimpmoneyy'); });
+await t('the same Telegram group listed under two accounts collapses to one chat with both accounts', () => {
+  const a = chat({ id: 'u1', connectedAccount: { id: 'a1', username: 'Thrill_VIP_Ops' }, lastMessageDate: ago(2) });
+  const b = chat({ id: 'u2', connectedAccount: { id: 'a2', username: 'mikeythrillaffiliate' }, lastMessageDate: ago(1), lastMessage: { date: ago(1), isOut: false, sender: { id: COLTON } } });
+  const d = dedupeChats([a, b]);
+  eq(d.length, 1);
+  eq(d[0].accounts.join(','), 'Thrill_VIP_Ops,mikeythrillaffiliate');
+  eq(d[0].lastMessageDate, ago(1), 'newest last message wins');
+  eq(d[0].lastMessage.sender.id, COLTON);
 });
 
-t('a conversation the player closed with thanks is quiet, not waiting on us', () => {
-  const r = analyzeChat(chat({ lastMessageDate: ago(40), lastMessage: { date: ago(40), sender: { id: PLAYER } } }), {
-    messages: [{ ...msg(40, PLAYER), text: 'Thanks' }, { ...msg(40.01, STAFF), text: 'sent your way now mate' }],
-    now: NOW, expectedMembers: 8,
-  });
-  eq(r.state, 'quiet');
-  eq(r.lastPlayerAck, true);
+// --- team -------------------------------------------------------------------
+await t('senders resolve by id, by exact name and by the naming convention', () => {
+  eq(identify(COLTON).name, 'Colton');
+  eq(identify(PRIEST).name, 'Rayne Davis', 'High Priest is Rayne');
+  eq(identify(null, 'High Priest - Thrill.com').name, 'Rayne Davis');
+  eq(identify('999', 'Carter | Thrill VIP').name, 'Carter');
+  eq(identify('999', 'Newhost | Thrill VIP'), null, 'convention without a matching member is unidentified');
+  eq(isStaffSender('999', 'Newhost | Thrill VIP'), true, 'but still staff');
+  eq(isStaffSender(SHARED), true, 'the shared account is staff');
+  eq(isStaffSender(PLAYER, '#'), false);
+  eq(isStaffSender('42', 'thrillseeker99'), false, 'a player with thrill in their name is not staff');
 });
-t('a real question left hanging is still waiting on us', () => {
-  const r = analyzeChat(chat({ lastMessageDate: ago(40), lastMessage: { date: ago(40), sender: { id: PLAYER } } }), {
-    messages: [{ ...msg(40, PLAYER), text: 'can you check my account for a bonus?' }, { ...msg(41, STAFF), text: 'hey' }],
-    now: NOW, expectedMembers: 8,
-  });
-  eq(r.state, 'waiting_on_us');
+await t('account owners resolve for personal accounts only', () => {
+  eq(ownerOfAccount('ColtonThrill').name, 'Colton');
+  eq(ownerOfAccount('byronthrill').hosting, false);
+  eq(ownerOfAccount('Thrill_VIP_Ops'), null);
 });
-t('naming a competitor on its own is not enough to call a player unhappy', () => {
-  eq(ruleScan(['stake have more options for slots but ive been losing a lot there, i want to come back']).label, 'neutral');
+await t('a learned sender counts as staff for the run', () => {
+  useLearnedStaff(new Map([['777', 'Somebody | Thrill']]));
+  eq(isStaffSender('777'), true);
+  useLearnedStaff(new Map());
+  eq(isStaffSender('777'), false);
 });
-t('naming a competitor as a destination is', () => {
-  eq(ruleScan(['im moving to stake']).label, 'negative');
-});
-
-t('politeness wrapped around a complaint is not an acknowledgement', () => {
-  const r = analyzeChat(chat({ lastMessageDate: ago(3), lastMessage: { date: ago(3), sender: { id: PLAYER } } }), {
-    messages: [{ ...msg(3, PLAYER), text: 'thanks but where is my money' }, { ...msg(4, STAFF), text: 'looking into it' }],
-    now: NOW, expectedMembers: 8,
-  });
-  eq(r.lastPlayerAck, false);
-  eq(r.state, 'waiting_on_us');
-});
-t('a question is never a sign-off however polite', () => {
-  const r = analyzeChat(chat({ lastMessageDate: ago(3), lastMessage: { date: ago(3), sender: { id: PLAYER } } }), {
-    messages: [{ ...msg(3, PLAYER), text: 'thanks! any chance of a bonus this week?' }],
-    now: NOW, expectedMembers: 8,
-  });
-  eq(r.state, 'waiting_on_us');
+await t('tally learns staff from spread across groups, never a player from one group', () => {
+  const tally = {};
+  for (let i = 0; i < 7; i++) updateTally(tally, `-${i}`, [msg(1, '555', { senderName: 'Unknown Person' }), msg(1, `${9000 + i}`, { senderName: '#' })]);
+  const learned = learnedStaff(tally);
+  eq(learned.has('555'), true);
+  eq(learned.has('9000'), false);
+  eq(learned.has(COLTON), false, 'known members are not tallied');
 });
 
-// --- leaving -------------------------------------------------------------
-t('a host being removed is not the player leaving', () => {
-  // luvboobs x Thrill.com. Kyle removed Andre, another host. The member count
-  // fell to 7 and the player was still in the group and still talking. This
-  // exact chat was reported as "no player left in the group".
-  const r = analyzeChat(chat({ title: 'luvboobs x Thrill.com', membersCount: 7 }), {
-    messages: [
-      { ...msg(1, '7973277038', { senderName: 'Kyle | Thrill VIP', actionType: 'chatDeleteUser' }), text: 'Kyle | Thrill VIP removed Andre' },
-      { ...msg(2, PLAYER, { senderName: 'Luvboobs' }), text: 'Have a great night and thank you' },
-      { ...msg(3, '8268223773', { senderName: 'Colton | Thrill VIP' }), text: 'what sports you fancy this weekend' },
-    ],
-    now: NOW, expectedMembers: 8,
-  });
-  if (r.state === 'player_left') throw new Error('a host rotation is not a player departure');
-  eq(r.leaveActionAt, null);
-  if (!r.staffChurn.includes('Andre')) throw new Error('the staff change should still be recorded');
+// --- facts -----------------------------------------------------------------
+await t('who spoke last is decided by sender identity, never isOut', () => {
+  const f = factsOf([msg(1, COLTON, { isOut: false }), msg(2, PLAYER)]);
+  eq(f.lastStaffAt, ago(1)); eq(f.lastPlayerAt, ago(2)); eq(f.lastStaffBy, 'Colton');
 });
-t('the player leaving is caught by name', () => {
-  const r = analyzeChat(chat({ title: 'luvboobs x Thrill.com', membersCount: 7 }), {
-    messages: [
-      { ...msg(1, '7973277038', { senderName: 'Kyle | Thrill VIP', actionType: 'chatDeleteUser' }), text: 'Kyle | Thrill VIP removed Luvboobs' },
-      { ...msg(2, PLAYER, { senderName: 'Luvboobs' }), text: 'thanks' },
-    ],
-    now: NOW, expectedMembers: 8,
-  });
-  eq(r.state, 'player_left');
+await t('the host is the hosting member who does the talking', () => {
+  const f = factsOf([msg(1, KYLE, { senderName: 'Kyle | Thrill VIP' }), msg(2, COLTON), msg(3, COLTON), msg(4, PLAYER), msg(5, SHARED, { senderName: 'VIP Ops' })]);
+  eq(f.host.name, 'Colton'); eq(f.host.source, 'conversation'); eq(f.host.hosting, true);
+  eq(f.host.share, 50, 'two of four staff messages'); eq(f.host.others, 1);
+  eq(f.staffSpeakers[0].name, 'Colton'); eq(f.staffSpeakers[0].msgs, 2);
 });
-t('a player who leaves of their own accord is caught too', () => {
-  const r = analyzeChat(chat({ title: 'swish718 x Thrill.com' }), {
-    messages: [
-      { ...msg(1, null, { senderName: null, actionType: 'chatDeleteUser' }), text: 'swish718 left the group' },
-      { ...msg(2, PLAYER), text: 'ok' },
-    ],
-    now: NOW, expectedMembers: 8,
-  });
-  eq(r.state, 'player_left');
+await t('a book handed over follows the new host: recent speech outranks old volume', () => {
+  const f = factsOf([msg(2, KYLE, { senderName: 'Kyle | Thrill VIP' }), msg(3, KYLE, { senderName: 'Kyle | Thrill VIP' }), msg(45, COLTON), msg(46, COLTON), msg(47, COLTON), msg(48, COLTON), msg(1, PLAYER)]);
+  eq(f.host.name, 'Kyle');
 });
-t('member count on its own decides nothing', () => {
-  // Seven members with the player present is normal in plenty of these groups.
-  const r = analyzeChat(chat({ membersCount: 6 }), {
-    messages: [{ ...msg(1, PLAYER), text: 'still here' }, { ...msg(2, STAFF), text: 'good to hear' }],
-    now: NOW, expectedMembers: 8,
-  });
-  if (r.state === 'player_left') throw new Error('a low member count is not evidence');
+await t('only the shared account speaking leaves the host unattributed but active', () => {
+  const f = factsOf([msg(1, SHARED, { senderName: 'VIP Ops' }), msg(2, PLAYER)]);
+  eq(f.host.hosting, true); eq(f.host.unattributed, true); eq(f.host.source, 'shared account');
 });
-t('a silent history only counts when there is enough of it to be silent', () => {
-  const thin = analyzeChat(chat(), { messages: [{ ...msg(1, STAFF), text: 'hello' }], now: NOW, expectedMembers: 8 });
-  if (thin.state === 'player_left') throw new Error('one staff message is not proof the player is gone');
-  const thick = analyzeChat(chat({ lastMessageDate: ago(9) }), {
-    messages: Array.from({ length: 24 }, (_, i) => ({ ...msg(9 + i * 0.01, STAFF), text: 'checking in' })),
-    now: NOW, expectedMembers: 8,
-  });
-  eq(thick.state, 'player_left');
+await t('a non-hosting member as the only staff speaker makes the chat unhosted', () => {
+  const f = factsOf([msg(400, '31337', { senderName: 'Byron Thrill' }), msg(401, PLAYER)]);
+  eq(f.host.name, 'Byron Petzer'); eq(f.host.hosting, false);
+  eq(derive(chat({ lastMessageDate: ago(400) }), f).state, 'unhosted');
+});
+await t('acknowledgements close an exchange, questions and complaints do not', () => {
+  eq(isAcknowledgement('thanks!'), true); eq(isAcknowledgement("I'd appreciate it. Thank you"), true); eq(isAcknowledgement('gg'), true);
+  eq(isAcknowledgement('thanks but where is my money'), false); eq(isAcknowledgement('can you check?'), false); eq(isAcknowledgement('yo'), false);
+});
+await t('departures are attributed by the named target, a host being removed is not the player leaving', () => {
+  eq(departureTarget('Kyle | Thrill VIP removed Andre'), 'Andre');
+  eq(departureIsPlayer('Andre', { player: 'luvboobs', staffNames: [] }), false);
+  eq(departureIsPlayer('Luvboobs', { player: 'luvboobs', staffNames: [] }), true);
+  const f = factsOf([msg(1, COLTON), normalizeMessage({ date: ago(1.5), actionType: 'chatDeleteUser', text: 'Kyle | Thrill VIP removed Andre', sender: { id: KYLE } }), msg(2, PLAYER)], 'luvboobs');
+  eq(f.playerLeftAt, null); eq(f.staffChurn[0], 'Andre');
+  const g = factsOf([msg(1, COLTON), normalizeMessage({ date: ago(1.5), actionType: 'chatDeleteUser', text: 'Luvboobs left the group', sender: { id: PLAYER } }), msg(2, PLAYER)], 'luvboobs');
+  eq(g.playerLeftAt, ago(1.5));
+});
+await t('reply latency counts the first staff reply after a player turn', () => {
+  const f = factsOf([msg(1, COLTON), msg(1.01, COLTON), msg(1.02, PLAYER), msg(3, COLTON), msg(3.5, PLAYER)]);
+  eq(f.reply.samples, 2);
+  eq(f.reply.medianMins, Math.round(0.5 * 1440));
 });
 
-// --- host state ----------------------------------------------------------
-t("an inactive host's chats are unhosted, not quiet", () => {
-  const r = analyzeChat(chat({ connectedAccount: { id: 'cmrjnjs2r0q2xs51ko0u2bt2g', username: 'byronthrill' }, lastMessageDate: ago(400) }), { now: NOW });
-  eq(r.state, 'unhosted');
+// --- derive -------------------------------------------------------------------
+await t('a player message with no reply is waiting', () => {
+  const r = derive(chat({ lastMessageDate: ago(2) }), factsOf([msg(2, PLAYER), msg(5, COLTON)]));
+  eq(r.state, 'waiting'); eq(r.flags.waiting, true); eq(Math.round(r.playerQuietDays), 2); eq(Math.round(r.staffQuietDays), 5);
 });
-t('90 days of silence is dormant, not an alert', () => {
-  const r = analyzeChat(chat({ lastMessageDate: ago(120), lastMessage: { date: ago(120), sender: { id: STAFF } } }), { now: NOW });
-  eq(r.state, 'dormant');
+await t('nothing from us for a week is no_contact even when the player closed the last exchange', () => {
+  const r = derive(chat({ lastMessageDate: ago(8) }), factsOf([msg(8, PLAYER, { text: 'thanks!' }), msg(9, COLTON)]));
+  eq(r.state, 'no_contact'); eq(r.flags.no_contact, true); eq(r.flags.waiting, false); eq(r.ack, true);
+});
+await t('a waiting player we have not spoken to in a week carries both flags, display is waiting', () => {
+  const r = derive(chat({ lastMessageDate: ago(2) }), factsOf([msg(2, PLAYER), msg(10, COLTON)]));
+  eq(r.state, 'waiting'); eq(r.flags.no_contact, true);
+});
+await t('we posting into a silent player is ignored, and counts as contacted', () => {
+  const r = derive(chat({ lastMessageDate: ago(2), lastMessage: { date: ago(2), sender: { id: COLTON } } }), factsOf([msg(2, COLTON), msg(40, PLAYER)]));
+  eq(r.state, 'ignored'); eq(r.flags.contacted7d, true); eq(r.flags.no_contact, false);
+});
+await t('90 days of silence is dormant, not no_contact', () => {
+  const r = derive(chat({ lastMessageDate: ago(120) }), factsOf([msg(120, COLTON), msg(121, PLAYER)]));
+  eq(r.state, 'dormant'); eq(r.flags.dormant, true); eq(r.flags.no_contact, true);
+});
+await t('without history, a last message from staff dates our silence exactly', () => {
+  const r = derive(chat({ lastMessageDate: ago(9), lastMessage: { date: ago(9), isOut: false, sender: { id: COLTON } } }), null);
+  eq(r.history, 'pending'); eq(r.spokeLast, 'staff'); eq(Math.round(r.noContactDays), 9); eq(r.state, 'no_contact'); eq(r.host, 'VIP Ops', 'shared account, unattributed');
+});
+await t('without history, a recent player message leaves our silence unknown, an old one bounds it', () => {
+  const recent = derive(chat({ lastMessageDate: ago(2) }), null);
+  eq(recent.noContactDays, null); eq(recent.flags.no_contact, false); eq(recent.state, 'waiting');
+  const old = derive(chat({ lastMessageDate: ago(20) }), null);
+  eq(Math.round(old.noContactDays), 20); eq(old.flags.no_contact, true);
+});
+await t('a message newer than the last history read is attributed from the chat list', () => {
+  const f = factsOf([msg(9, COLTON), msg(10, PLAYER)]);
+  const r = derive(chat({ lastMessageDate: ago(1), lastMessage: { date: ago(1), isOut: false, sender: { id: COLTON } } }), f);
+  eq(r.lastStaffAt, ago(1)); eq(r.state, 'ignored', 'we posted a day ago into a player silent ten days'); eq(r.flags.contacted7d, true); eq(r.flags.no_contact, false);
+});
+await t('the host for an unread chat comes from a personal connected account', () => {
+  const r = derive(chat({ connectedAccount: { id: 'x', username: 'ColtonThrill' } }), null);
+  eq(r.host, 'Colton'); eq(r.hostSource, 'account owner');
+  const b = derive(chat({ connectedAccount: { id: 'y', username: 'byronthrill' }, lastMessageDate: ago(400) }), null);
+  eq(b.state, 'unhosted');
+});
+await t('negative sentiment promotes an otherwise fine row to unhappy', () => {
+  const r = derive(chat(), factsOf([msg(0.2, COLTON), msg(0.5, PLAYER)]), { sentiment: { label: 'at_risk', reason: 'withdrawal stuck, moving to Stake' } });
+  eq(r.state, 'unhappy'); eq(r.flags.unhappy, true);
+});
+await t('summary counts hosted players and coverage', () => {
+  const rows = [
+    derive(chat({ telegramId: '-1' }), factsOf([msg(1, COLTON), msg(2, PLAYER)])),
+    derive(chat({ telegramId: '-2', lastMessageDate: ago(8) }), factsOf([msg(8, PLAYER, { text: 'ok' }), msg(9, COLTON)])),
+    derive(chat({ telegramId: '-3', connectedAccount: { id: 'y', username: 'byronthrill' }, lastMessageDate: ago(400) }), null),
+  ];
+  const s = summarize(rows);
+  eq(s.total, 3); eq(s.hosted, 2); eq(s.unhosted, 1); eq(s.noContact7d, 1); eq(s.contacted7d, 1); eq(s.contactKnown, 2);
 });
 
-// --- cache ---------------------------------------------------------------
-t('cached timestamps reproduce the same verdict without a history call', () => {
-  const live = analyzeChat(chat(), { messages: [msg(2, PLAYER), msg(5, STAFF)], now: NOW, expectedMembers: 8 });
-  const cached = analyzeChat(chat(), { cached: { lastPlayerAt: ago(2), lastStaffAt: ago(5), playerSeen: true, leaveActionAt: null }, now: NOW, expectedMembers: 8 });
-  eq(cached.state, live.state);
-  eq(cached.fromCache, true);
+// --- alert policy --------------------------------------------------------------
+await t('no_contact fires once per silence and re-arms only after we speak', () => {
+  const r = derive(chat({ lastMessageDate: ago(8) }), factsOf([msg(8, COLTON), msg(9, PLAYER)]));
+  eq(dueAlerts(r, {}, { now: NOW }).map((d) => d.kind).join(), 'no_contact');
+  eq(dueAlerts(r, { no_contact: { at: ago(0.5) } }, { now: NOW }).length, 0, 'already alerted in this silence');
+  eq(dueAlerts(r, { no_contact: { at: ago(0.5), seeded: true } }, { now: NOW }).length, 0, 'seeded while already over the line, stays off Slack');
+  eq(dueAlerts(r, { no_contact: { at: ago(3), seeded: true } }, { now: NOW }).length, 1, 'seeded five days into the silence, crossing came after the seed');
+  eq(dueAlerts(r, { no_contact: { at: ago(9) } }, { now: NOW }).length, 1, 'we spoke after the last alert, new silence');
+  const unread = derive(chat({ lastMessageDate: ago(2) }), null);
+  eq(dueAlerts(unread, { no_contact: { at: ago(1), seeded: true } }, { now: NOW }).length, 0, 'unknown silence never fires off a seed');
+});
+await t('no alert for dormant, left or unhosted chats', () => {
+  eq(dueAlerts(derive(chat({ lastMessageDate: ago(120) }), factsOf([msg(120, COLTON), msg(121, PLAYER)])), {}, { now: NOW }).length, 0);
+  eq(dueAlerts(derive(chat({ connectedAccount: { id: 'y', username: 'byronthrill' }, lastMessageDate: ago(20) }), null), {}, { now: NOW }).length, 0);
+});
+await t('waiting on its own never alerts', () => {
+  const r = derive(chat({ lastMessageDate: ago(2) }), factsOf([msg(2, PLAYER), msg(3, COLTON)]));
+  eq(dueAlerts(r, {}, { now: NOW }).length, 0);
+});
+await t('urgent fires on an unanswered at_risk once, and again only for a newer message a week later', () => {
+  const answered = derive(chat(), factsOf([msg(0.2, COLTON), msg(0.5, PLAYER)]), { sentiment: { label: 'at_risk', lastPlayerAt: ago(0.5) } });
+  eq(dueAlerts(answered, {}, { now: NOW }).length, 0, 'a host already replied, dashboard only');
+  const r = derive(chat({ lastMessageDate: ago(0.2) }), factsOf([msg(0.2, PLAYER), msg(0.5, COLTON)]), { sentiment: { label: 'at_risk', lastPlayerAt: ago(0.2) } });
+  eq(dueAlerts(r, {}, { now: NOW }).map((d) => d.kind).join(), 'urgent');
+  eq(dueAlerts(r, { urgent: { at: ago(2) } }, { now: NOW }).length, 0);
+  eq(dueAlerts(r, { urgent: { at: ago(9) } }, { now: NOW }).length, 1);
+  eq(dueAlerts(r, {}, { now: NOW, urgent: false }).length, 0, 'switched off');
+});
+await t('ordering puts urgent first, then the freshest silences', () => {
+  const a = { kind: 'no_contact', row: { noContactDays: 30 } }, b = { kind: 'urgent', row: {} }, c = { kind: 'no_contact', row: { noContactDays: 7.1 } };
+  eq(orderAlerts([a, b, c]).map((x) => x.row.noContactDays ?? 'u').join(','), 'u,7.1,30');
+});
+await t('alert text names the player, the host, both silences and the dashboard link', () => {
+  const r = derive(chat({ lastMessageDate: ago(8) }), factsOf([msg(8, COLTON), msg(9, PLAYER)]), { custom: { tier: 'diamond_1' } });
+  const text = formatAlert('no_contact', r, { env: { DASHBOARD_URL: 'https://x.test/' } });
+  ok(text.includes('7 days without contact'), text); ok(text.includes('testplayer'), text); ok(text.includes('Diamond I'), text);
+  ok(text.includes('Host Colton'), text); ok(text.includes('we last spoke 8d ago (Colton)'), text); ok(text.includes('player last spoke 9d ago'), text);
+  ok(text.includes('https://x.test/queue?chat=-5000000001'), text);
+  eq(prettyTier('emerald_3'), 'Emerald III');
 });
 
-// --- output --------------------------------------------------------------
-t('the alert names the player and both timestamps', () => {
-  const r = analyzeChat(chat(), { messages: [msg(3, PLAYER), msg(6, STAFF)], now: NOW, expectedMembers: 8 });
-  const text = formatAlert(r, { tier: 'Diamond III', playerUsername: 'testplayer' });
-  if (!text.includes('testplayer')) throw new Error('player missing');
-  if (!text.includes('Diamond III')) throw new Error('tier missing');
-  if (!/player last spoke 3d ago/.test(text)) throw new Error(`player timestamp missing:\n${text}`);
-  if (!/we last spoke 6d ago/.test(text)) throw new Error(`staff timestamp missing:\n${text}`);
+// --- sentiment rules -------------------------------------------------------------
+await t('rules flag the unambiguous cases and stay neutral otherwise', () => {
+  eq(ruleScan(['my withdrawal has been pending for 3 days']).label, 'negative');
+  eq(ruleScan(['this is a scam, im done']).label, 'at_risk');
+  eq(ruleScan(['thanks legend, appreciate it']).label, 'positive');
+  eq(ruleScan(['can I get a reload']).label, 'neutral');
+  eq(detectProvider({}), null); eq(detectProvider({ OPENAI_API_KEY: 'k' }), 'openai'); eq(detectProvider({ ANTHROPIC_API_KEY: 'k' }), 'anthropic');
 });
-t('a chat whose history genuinely cannot be read says so', () => {
-  const r = analyzeChat(chat({ lastMessageDate: ago(10), lastMessage: { date: ago(10), sender: { id: PLAYER } } }),
-    { now: NOW, historyState: 'unavailable' });
-  eq(r.historyState, 'unavailable');
-  if (!/history is not readable/i.test(formatAlert(r))) throw new Error('should flag the weaker basis');
+
+// --- slack pacing ---------------------------------------------------------------
+await t('postSlack honours one Retry-After and raises RateLimited on the second', async () => {
+  let calls = 0;
+  const limited = { ok: false, status: 429, headers: { get: () => '0' }, json: async () => ({ ok: false, error: 'ratelimited' }) };
+  const fine = { ok: true, status: 200, headers: { get: () => null }, json: async () => ({ ok: true, ts: '1.2' }) };
+  const r = await postSlack('x', { channel: 'c', token: 't', fetchImpl: async () => (++calls === 1 ? limited : fine) });
+  eq(r.ts, '1.2'); eq(calls, 2);
+  calls = 0;
+  let err = null;
+  try { await postSlack('x', { channel: 'c', token: 't', fetchImpl: async () => limited }); } catch (e) { err = e; }
+  ok(err instanceof RateLimited, 'RateLimited raised');
 });
-t('a chat that has not been read yet is pending, not unavailable', () => {
-  // The distinction the jp823 false positive turned on: a queue position is
-  // not a permission fact, and an alert must not be raised from it.
-  const r = analyzeChat(chat({ lastMessageDate: ago(10), lastMessage: { date: ago(10), sender: { id: PLAYER } } }), { now: NOW });
-  eq(r.historyState, 'pending');
-  eq(r.historyRead, false);
-  if (/not readable/i.test(formatAlert(r))) throw new Error('must not claim the history cannot be read');
+await t('postSequence stops at the first failure and reports what was sent', async () => {
+  const slack = fakeSlack({ limitAfter: 2 });
+  const r = await postSequence(['a', 'b', 'c'], { gapMs: 0, post: slack.post });
+  eq(r.sent.length, 2); ok(r.error instanceof RateLimited);
 });
-t('reading the history clears the pending state', () => {
-  const r = analyzeChat(chat(), { messages: [msg(2, PLAYER), msg(5, STAFF)], now: NOW, expectedMembers: 8 });
-  eq(r.historyState, 'read');
-});
-t('the acknowledgement that caused the false positive is caught once history is read', () => {
-  // jp823: the player's last message was "I'd appreciate it. Thank you", right
-  // after the host answered. Tier 1 has no text, so it read as unanswered.
-  const withText = analyzeChat(chat({ lastMessageDate: ago(3), lastMessage: { date: ago(3), sender: { id: PLAYER } } }), {
-    messages: [{ ...msg(3, PLAYER), text: "I'd appreciate it. Thank you" }, { ...msg(3.01, STAFF), text: 'will you give us a bit of time to review for you?' }],
-    now: NOW, expectedMembers: 8,
+
+// --- the scan, end to end --------------------------------------------------------
+const useKv = () => {
+  const up = fakeUpstash();
+  process.env.KV_REST_API_URL = 'https://kv.test'; process.env.KV_REST_API_TOKEN = 'tok';
+  process.env.SLACK_BOT_TOKEN = 'xoxb'; process.env.SLACK_CHANNEL_ID = 'C1'; process.env.SENTIMENT_PROVIDER = 'none';
+  process.env.DASHBOARD_URL = 'https://dash.test';
+  globalThis.fetch = up.fetchImpl;
+  return up;
+};
+const workspace = () => {
+  const chats = [];
+  const mk = (i, over = {}) => ({
+    id: `u${i}`, telegramId: `-50000000${String(i).padStart(2, '0')}`, title: `player${i} x Thrill.com`, type: 'group', membersCount: 8,
+    connectedAccount: { id: 'acct-vipops', username: 'Thrill_VIP_Ops' },
+    lastMessageDate: ago(1), updatedAt: ago(1), lastMessage: { date: ago(1), isOut: false, sender: { id: PLAYER } }, ...over,
   });
-  if (withText.state === 'waiting_on_us') throw new Error('an acknowledgement is not an unanswered question');
-  eq(withText.lastPlayerAck, true);
+  // 1..3 fine, 4..6 already past a week with no word from us, 7 dormant, 8 an affiliate room, 9 duplicate of 5 under another account
+  for (let i = 1; i <= 3; i++) chats.push(mk(i, { lastMessageDate: ago(0.5), updatedAt: ago(0.5), lastMessage: { date: ago(0.5), sender: { id: COLTON } } }));
+  for (let i = 4; i <= 6; i++) chats.push(mk(i, { lastMessageDate: ago(10), updatedAt: ago(10), lastMessage: { date: ago(10), sender: { id: COLTON } } }));
+  chats.push(mk(7, { lastMessageDate: ago(200), updatedAt: ago(200), lastMessage: { date: ago(200), sender: { id: COLTON } } }));
+  chats.push(mk(8, { title: '(AFF) ID 80281 x BCGAME' }));
+  chats.push({ ...mk(5, { lastMessageDate: ago(10), updatedAt: ago(10), lastMessage: { date: ago(10), sender: { id: COLTON } } }), id: 'u9', connectedAccount: { id: 'acct-colton', username: 'ColtonThrill' } });
+  const messages = {};
+  for (const c of chats) {
+    const d = (c.lastMessageDate && (NOW - new Date(c.lastMessageDate)) / 86400000) || 1;
+    messages[c.telegramId] = [{ id: 2, date: ago(d), isOut: false, sender: { id: COLTON, name: 'Colton | Thrill VIP' }, text: 'checking in' }, { id: 1, date: ago(d + 1), isOut: false, sender: { id: PLAYER, name: '#' }, text: 'hey' }];
+  }
+  return { chats, messages };
+};
+
+await t('first run seeds the backlog silently, builds the book once per group, and posts one summary', async () => {
+  const up = useKv();
+  const { chats, messages } = workspace();
+  const api = fakeEntergram({ chats, messages });
+  const slack = fakeSlack();
+  const r = await runScan({ api, now: NOW, log: () => {}, post: slack.post, alertGapMs: 0 });
+  eq(r.ok, true); eq(r.mode, 'full');
+  eq(r.summary.total, 7, 'seven distinct player chats, affiliate room and duplicate excluded');
+  eq(r.summary.noContact7d, 3); eq(r.posted, 0); eq(r.due, 3);
+  eq(slack.posts.length, 1); ok(slack.posts[0].includes('restarted'), slack.posts[0]);
+  const meta = up.get('ew2:meta'); ok(meta.seededAt, 'seeded'); ok(meta.lastFullAt);
+  const book = await kv.getBook(); eq(book.chats.length, 7);
+  const s5 = up.get('ew2:chat:-5000000005'); ok(s5.alerts.no_contact.seeded, 'seeded record');
+  ok(s5.facts, 'history read'); eq(s5.facts.host.name, 'Colton');
+  const snap = await kv.getSnapshot(); eq(snap.rows.length, 7); eq(snap.summary.hosted, 7);
 });
 
-// --- sentiment -----------------------------------------------------------
-t('an unresolved withdrawal complaint reads as negative', () => {
-  eq(ruleScan(['my withdrawal has been pending for 3 days, where is my money']).label, 'negative');
+await t('second run is incremental, touches only changed chats, and alerts nothing that was seeded', async () => {
+  useKv();
+  const { chats, messages } = workspace();
+  const api = fakeEntergram({ chats, messages });
+  const slack = fakeSlack();
+  await runScan({ api, now: NOW, log: () => {}, post: slack.post, alertGapMs: 0 });
+  api.calls.length = 0;
+  const r = await runScan({ api, now: NOW + 5 * 60000, log: () => {}, post: slack.post, alertGapMs: 0 });
+  eq(r.mode, 'incremental'); eq(r.posted, 0); eq(r.due, 0);
+  ok(api.calls.some((c) => c[0] === 'workspaceChats' && c[1].updated_since), 'used updated_since');
+  eq(api.calls.filter((c) => c[0] === 'messages').length, 0, 'nothing moved, nothing re-read within the rotation window');
+  eq(slack.posts.length, 1, 'no new posts');
 });
-t('a scam accusation plus a goodbye reads as at_risk', () => {
-  const r = ruleScan(['this is rigged, absolute scam', 'im done with this site']);
-  eq(r.label, 'at_risk');
-  if (!r.flags.includes('scam')) throw new Error('should flag the accusation');
+
+await t('a player crossing seven days after the seed alerts exactly once, then re-arms only after we speak', async () => {
+  const up = useKv();
+  const { chats, messages } = workspace();
+  const api = fakeEntergram({ chats, messages });
+  const slack = fakeSlack();
+  await runScan({ api, now: NOW, log: () => {}, post: slack.post, alertGapMs: 0 });
+  // player1: we spoke 12h ago at seed time. Eight days later nobody has spoken.
+  let now = NOW + 8 * 86400000;
+  let r = await runScan({ api, now, mode: 'full', log: () => {}, post: slack.post, alertGapMs: 0 });
+  eq(r.due, 3, 'players 1 to 3 crossed'); eq(r.posted, 3);
+  eq(slack.posts.length, 4);
+  ok(slack.posts[1].includes('7 days without contact'), slack.posts[1]); ok(slack.posts[1].includes('Host Colton'), slack.posts[1]);
+  const rec = up.get('ew2:chat:-5000000001').alerts.no_contact; ok(rec.at && !rec.seeded, 'recorded as posted');
+  // Next tick: same silence, nothing new.
+  r = await runScan({ api, now: now + 5 * 60000, mode: 'full', log: () => {}, post: slack.post, alertGapMs: 0 });
+  eq(r.posted, 0); eq(slack.posts.length, 4);
+  // We speak on day 9, then go quiet again until day 17: one more alert, once.
+  const c1 = api.calls && chats.find((c) => c.telegramId === '-5000000001');
+  const spokeAt = new Date(now + 86400000).toISOString();
+  c1.lastMessageDate = spokeAt; c1.updatedAt = spokeAt; c1.lastMessage = { date: spokeAt, isOut: false, sender: { id: COLTON } };
+  api.setMessages('-5000000001', [{ id: 3, date: spokeAt, isOut: false, sender: { id: COLTON, name: 'Colton | Thrill VIP' }, text: 'hello again' }, ...messages['-5000000001']]);
+  r = await runScan({ api, now: now + 2 * 86400000, mode: 'full', log: () => {}, post: slack.post, alertGapMs: 0 });
+  eq(r.posted, 0, 'in contact again');
+  r = await runScan({ api, now: now + 9 * 86400000, mode: 'full', log: () => {}, post: slack.post, alertGapMs: 0 });
+  eq(r.posted, 1, 'second silence, one alert'); eq(slack.posts.length, 5);
+  r = await runScan({ api, now: now + 9 * 86400000 + 5 * 60000, mode: 'full', log: () => {}, post: slack.post, alertGapMs: 0 });
+  eq(r.posted, 0); eq(slack.posts.length, 5);
 });
-t('naming a competitor alongside a bonus complaint is at_risk', () => {
-  eq(ruleScan(['bonus never credited, moving to stake']).label, 'at_risk');
+
+await t('a Slack rate limit stops posting, keeps what was sent, and the rest goes out next tick without duplicates', async () => {
+  const up = useKv();
+  const { chats, messages } = workspace();
+  const api = fakeEntergram({ chats, messages });
+  const seedSlack = fakeSlack();
+  await runScan({ api, now: NOW, log: () => {}, post: seedSlack.post, alertGapMs: 0 });
+  const slack = fakeSlack({ limitAfter: 1 });
+  const now = NOW + 8 * 86400000;
+  let r = await runScan({ api, now, mode: 'full', log: () => {}, post: slack.post, alertGapMs: 0 });
+  eq(r.ok, true, 'the run completes despite the rate limit'); eq(r.posted, 1); ok(r.alertError, 'error reported');
+  ok(up.get('ew2:meta').lastGoodAt, 'state persisted after the rate limit');
+  const snap = await kv.getSnapshot(); ok(snap && snap.generatedAt, 'snapshot written');
+  const slack2 = fakeSlack();
+  r = await runScan({ api, now: now + 5 * 60000, mode: 'full', log: () => {}, post: slack2.post, alertGapMs: 0 });
+  eq(r.posted, 2, 'the two held alerts post now');
+  const all = [...slack.posts, ...slack2.posts];
+  eq(new Set(all.map((p) => p.split('\n')[0])).size, 3, 'three distinct players, no repeats');
 });
-t('ordinary chat is neutral and thanks is positive', () => {
-  eq(ruleScan(['hey what time does the tournament start']).label, 'neutral');
-  eq(ruleScan(['thanks mate, appreciate the quick payout']).label, 'positive');
+
+await t('the per-run cap holds the overflow and posts one line about it', async () => {
+  useKv();
+  process.env.MAX_ALERTS_PER_RUN = '2';
+  const { chats, messages } = workspace();
+  const api = fakeEntergram({ chats, messages });
+  const slack = fakeSlack();
+  await runScan({ api, now: NOW, log: () => {}, post: slack.post, alertGapMs: 0 });
+  const r = await runScan({ api, now: NOW + 8 * 86400000, mode: 'full', log: () => {}, post: slack.post, alertGapMs: 0 });
+  eq(r.posted, 2); eq(r.overflow, 1);
+  ok(slack.posts.at(-1).includes('1 more player'), slack.posts.at(-1));
+  delete process.env.MAX_ALERTS_PER_RUN;
 });
-t('the model verdict wins but the rule flags are kept', () => {
-  const merged = mergeSentiment(ruleScan(['withdrawal still pending, where is my money']), { label: 'at_risk', reason: 'unpaid withdrawal, losing trust', source: 'openai' });
-  eq(merged.label, 'at_risk');
-  if (!merged.flags.includes('withdrawal')) throw new Error('rule flags should survive the merge');
+
+await t('a concurrent run is skipped while the lock is held', async () => {
+  const up = useKv();
+  up.store.set('ew2:lock', 'someone-else');
+  const r = await runScan({ api: fakeEntergram(), now: NOW, log: () => {} });
+  eq(r.skipped, 'locked');
 });
-t('the provider follows whichever key is set', () => {
-  eq(detectProvider({ OPENAI_API_KEY: 'x' }), 'openai');
-  eq(detectProvider({ ANTHROPIC_API_KEY: 'x' }), 'anthropic');
-  eq(detectProvider({ OPENAI_API_KEY: 'x', ANTHROPIC_API_KEY: 'y', SENTIMENT_PROVIDER: 'anthropic' }), 'anthropic');
-  eq(detectProvider({}), null);
-  eq(detectProvider({ OPENAI_API_KEY: 'x', SENTIMENT_PROVIDER: 'none' }), null);
-});
-t('the alert says the verdict came from the player and quotes them', () => {
-  const r = analyzeChat(chat(), { messages: [msg(3, PLAYER), msg(6, STAFF)], now: NOW, expectedMembers: 8 });
-  r.sentiment = { label: 'negative', reason: 'disappointed about losses', flags: [], quote: 'While being down 15k on the book smh' };
-  const text = formatAlert(r);
-  if (!/player's messages only/.test(text)) throw new Error('should say whose words were scored');
-  if (!/down 15k on the book/.test(text)) throw new Error('should quote the player');
-});
-t('the alert carries the sentiment when it is not neutral', () => {
-  const r = analyzeChat(chat(), { messages: [msg(3, PLAYER), msg(6, STAFF)], now: NOW, expectedMembers: 8 });
-  r.sentiment = { label: 'at_risk', reason: 'unpaid withdrawal', flags: ['withdrawal'] };
-  const text = formatAlert(r);
-  if (!/Sentiment: at_risk \(unpaid withdrawal\)/.test(text)) throw new Error(`sentiment line missing:\n${text}`);
-});
-t('a neutral read adds no noise to the alert', () => {
-  const r = analyzeChat(chat(), { messages: [msg(3, PLAYER)], now: NOW, expectedMembers: 8 });
-  r.sentiment = { label: 'neutral', flags: [] };
-  if (/Sentiment/.test(formatAlert(r))) throw new Error('neutral should not be printed');
+
+await t('an unreadable group is marked unavailable, still classified from the list, and not retried for a day', async () => {
+  const up = useKv();
+  const { chats, messages } = workspace();
+  messages['-5000000004'] = [];
+  const api = fakeEntergram({ chats, messages });
+  const slack = fakeSlack();
+  await runScan({ api, now: NOW, log: () => {}, post: slack.post, alertGapMs: 0 });
+  const st = up.get('ew2:chat:-5000000004'); eq(st.historyUnavailable, true); ok(!st.facts);
+  const snap = await kv.getSnapshot();
+  const row = snap.rows.find((x) => x.chatId === '-5000000004');
+  eq(row.history, 'unavailable'); eq(row.state, 'no_contact');
+  api.calls.length = 0;
+  await runScan({ api, now: NOW + 60 * 60000, mode: 'full', log: () => {}, post: slack.post, alertGapMs: 0 });
+  eq(api.calls.filter((c) => c[0] === 'messages' && c[1] === '-5000000004').length, 0, 'not retried within a day');
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

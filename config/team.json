@@ -1,164 +1,88 @@
 {
-  "note": "The team, as Entergram's member list shows it. This exists because account-level attribution cannot work here: @Thrill_VIP_Ops is a SHARED Telegram account that 11 of the 12 members post from, so the connectedAccount on a chat says almost nothing about who hosts that player. Attribution runs on the Telegram sender instead, and this table turns a sender into a person.",
+  "note": "The single source of truth for who is staff and who hosts. Attribution runs on the Telegram sender of each message, not on the connected account a chat is filed under, because @Thrill_VIP_Ops is one shared Telegram account that most of the team posts from. A sender resolves by telegramUserIds first, then by an exact senderName, then by the '<name> | Thrill' naming convention. hosting:false marks staff whose messages count as ours but who never become the host of a player.",
+  "readerAccountId": "cmu72hqn44wrcod011qefw9lh",
+  "readerNote": "@Thrill_VIP_Ops as connected under the API key's user. Message history is only readable for groups this Telegram account is a member of. Adding it to a group makes that group readable on the next scan.",
   "sharedAccounts": [
-    "Thrill_VIP_Ops"
+    { "username": "Thrill_VIP_Ops", "telegramUserId": "8797108490", "displayName": "VIP Ops", "note": "Shared by the team. A message from this sender is ours, but it cannot be attributed to a person." }
+  ],
+  "bots": [
+    { "telegramUserId": "777000", "name": "Telegram service" }
   ],
   "members": [
     {
-      "name": "Shane Austin",
-      "email": "shane.austin@paradym.io",
-      "role": "OWNER",
-      "accounts": [
-        "oxjuice",
-        "Thrill_VIP_Ops"
-      ]
-    },
-    {
-      "name": "Ryan Moore",
-      "email": "ryan.moore@paradym.io",
-      "role": "ADMIN",
-      "accounts": [
-        "Thrill_VIP_Ops"
-      ]
-    },
-    {
-      "name": "Andy Litkie",
-      "email": "andy.litkie@paradym.io",
-      "role": "ADMIN",
-      "accounts": [
-        "Thrill_VIP_Ops"
-      ],
-      "senderNames": [
-        "Andy | Thrill"
-      ],
-      "telegramUserIds": [
-        "5278034304"
-      ]
-    },
-    {
-      "name": "Byron Petzer",
-      "email": "byron@paradym.io",
-      "role": "ADMIN",
-      "accounts": [
-        "Thrill_VIP_Ops"
-      ],
-      "hosting": false,
-      "reason": "CEO, no longer hosting"
-    },
-    {
-      "name": "Henry",
-      "email": "anri.akhaladze@paradym.io",
-      "role": "ADMIN",
-      "accounts": [
-        "FreZzyCopter",
-        "Thrill_VIP_Ops"
-      ],
-      "telegramUserIds": [
-        "5715310548",
-        "8797108490"
-      ]
+      "name": "Colton",
+      "email": "patrick@paradym.io",
+      "hosting": true,
+      "telegramUserIds": ["8268223773"],
+      "telegramUsernames": ["ColtonThrill"],
+      "senderNames": ["Colton | Thrill VIP"],
+      "accounts": ["ColtonThrill"]
     },
     {
       "name": "Kyle",
       "email": "kyle@paradym.io",
-      "role": "MEMBER",
-      "accounts": [
-        "Thrill_VIP_Ops"
-      ],
-      "senderNames": [
-        "Kyle | Thrill VIP"
-      ],
-      "telegramUserIds": [
-        "7973277038"
-      ],
-      "telegramUsernames": [
-        "KyleThrill"
-      ]
-    },
-    {
-      "name": "Terry Blankfield",
-      "email": "terry.blankfield@paradym.io",
-      "role": "MEMBER",
-      "accounts": [
-        "Thrill_VIP_Ops"
-      ]
+      "hosting": true,
+      "telegramUserIds": ["7973277038"],
+      "telegramUsernames": ["KyleThrill"],
+      "senderNames": ["Kyle | Thrill VIP"]
     },
     {
       "name": "Carter",
       "email": "brandyn@paradym.io",
-      "role": "MEMBER",
-      "accounts": [
-        "Thrill_VIP_Ops"
-      ],
-      "senderNames": [
-        "Carter | Thrill VIP"
-      ],
-      "telegramUserIds": [
-        "8309810799"
-      ],
-      "telegramUsernames": [
-        "CarterThrillVIP"
-      ]
+      "hosting": true,
+      "telegramUserIds": ["8309810799"],
+      "telegramUsernames": ["CarterThrillVIP"],
+      "senderNames": ["Carter | Thrill VIP"]
     },
     {
-      "name": "Colton",
-      "email": "patrick@paradym.io",
-      "role": "MEMBER",
-      "accounts": [
-        "ColtonThrill",
-        "Thrill_VIP_Ops"
-      ],
-      "senderNames": [
-        "Colton | Thrill VIP"
-      ],
-      "telegramUserIds": [
-        "8268223773"
-      ],
-      "telegramUsernames": [
-        "ColtonThrill"
-      ]
+      "name": "Andy Litkie",
+      "email": "andy.litkie@paradym.io",
+      "hosting": true,
+      "telegramUserIds": ["5278034304"],
+      "telegramUsernames": ["AndyThrill"],
+      "senderNames": ["Andy | Thrill", "Andy | Thrill FK"]
     },
     {
       "name": "Mikey",
       "email": "kaleb.d@thrillaffiliates.com",
-      "role": "MEMBER",
-      "accounts": [
-        "mikeythrillaffiliate",
-        "Thrill_VIP_Ops"
-      ],
-      "senderNames": [
-        "Mikey | Thrill Affiliate"
-      ],
-      "telegramUserIds": [
-        "5013178890"
-      ],
-      "telegramUsernames": [
-        "mikeythrillaffiliate"
-      ]
-    },
-    {
-      "name": "Kaleb Davis",
-      "email": "kaleb.davis@paradym.io",
-      "role": "MEMBER",
-      "accounts": [
-        "Thrill_VIP_Ops"
-      ]
+      "hosting": true,
+      "telegramUserIds": ["5013178890"],
+      "telegramUsernames": ["mikeythrillaffiliate"],
+      "senderNames": ["Mikey | Thrill Affiliate"],
+      "accounts": ["mikeythrillaffiliate"]
     },
     {
       "name": "Rayne Davis",
       "email": "rayne.davis@paradym.io",
-      "role": "MEMBER",
-      "accounts": [
-        "Thrill_VIP_Ops"
-      ]
-    }
-  ],
-  "unresolved": [
+      "hosting": true,
+      "telegramUserIds": ["8120203444"],
+      "telegramUsernames": ["davis_thrill"],
+      "senderNames": ["High Priest - Thrill.com", "High Priest"]
+    },
     {
-      "senderName": "High Priest - Thrill.com",
-      "telegramUserId": "8120203444",
-      "telegramUsername": "davis_thrill",
-      "note": "Hosts a large number of players. The username points at one of the two Davises on the team, Kaleb Davis or Rayne Davis, and guessing between them would put every one of those players under the wrong name. Add 8120203444 to the right member's telegramUserIds and this resolves everywhere at once."
+      "name": "Byron Petzer",
+      "email": "byron@paradym.io",
+      "hosting": false,
+      "reason": "No longer hosting. His groups are reported as unhosted, never as quiet players.",
+      "senderNames": ["Byron Thrill", "Byron | Thrill"],
+      "accounts": ["byronthrill"]
+    },
+    {
+      "name": "Shane Austin",
+      "email": "shane.austin@paradym.io",
+      "hosting": false,
+      "accounts": ["oxjuice"]
+    },
+    { "name": "Ryan Moore", "email": "ryan.moore@paradym.io", "hosting": false },
+    { "name": "Terry Blankfield", "email": "terry.blankfield@paradym.io", "hosting": false },
+    { "name": "Kaleb Davis", "email": "kaleb.davis@paradym.io", "hosting": false },
+    {
+      "name": "Henry",
+      "email": "anri.akhaladze@paradym.io",
+      "hosting": false,
+      "telegramUserIds": ["5715310548"],
+      "telegramUsernames": ["FreZzyCopter"],
+      "accounts": ["FreZzyCopter"]
     }
   ]
 }

@@ -1,127 +1,122 @@
 # Entergram Watch
 
-Raises a Slack alert when a hosted player goes quiet or is left waiting, and
-serves a dashboard showing outreach coverage across every player chat in the
-workspace. Runs as a Vercel cron, so no machine of yours has to stay on.
+Watches every hosted player chat in the Entergram workspace, posts one Slack
+alert per player when they have had nothing from us for seven days, and serves
+a dashboard of outreach coverage, response times and player sentiment. Runs as
+a Vercel cron every five minutes.
 
-## What it detects
+## What Slack gets
 
-| State | Rule | Why it matters |
+| Alert | When | Repeats |
 |---|---|---|
-| **Waiting on us** | The player spoke last and nobody has replied for `UNANSWERED_HOURS` | The worst case. A player asked something and got nothing back. |
-| **Gone quiet** | No message either way for `QUIET_DAYS` | The reactivation list Shane asked for. |
-| **Ignoring us** | The host is still posting but the player has not spoken in `QUIET_DAYS` | Outreach is going out and not landing. Invisible without message history. |
-| **Left** | A leave action after the player's last message, or no player message on record, corroborated by member count | Not a quiet player, a gone one. Alerted separately so nobody wastes a re-engagement offer. |
-| **Unhosted** | The chat belongs to a host who no longer hosts | The player still exists and nobody is assigned to them. Dashboard only. |
-| **Unhappy** | Sentiment is negative or the player is signalling churn | A player can be in regular contact and still on the way out. Silence alone never catches that. |
-| **Dormant** | Silent 90 days or more | Kept off the alerts so the live signal stays readable. |
+| 7 days without contact | A hosted player crosses seven days without a message from any staff member | Once per silence. Re-armed only after we speak to the player again |
+| Churn signal | A player's own messages read as at risk (unresolved withdrawal, scam accusation, naming a rival, saying goodbye) and nobody has answered yet | Once, then again only for a newer message at least a week later. `URGENT_ALERTS=off` disables it |
 
-## Facts about this API that the code encodes
+Everything else lives on the dashboard: players waiting on a reply, players not
+answering our outreach, dormant players, players who left, chats whose host no
+longer hosts.
 
-These were established against production and are easy to lose:
+Posting is paced at one message a second, honours `Retry-After`, and is capped
+per run (`MAX_ALERTS_PER_RUN`, default 15) with one overflow line pointing at
+the queue. The record of a posted alert is written to KV before the next one
+goes out, so a failure later in the run can never cause a repeat. A restart
+seeds a baseline instead of posting the backlog: only silences that cross the
+line after the seed post.
 
-- **`chat_id` is the Telegram id, never the workspace UUID.** The UUID returns
-  `400 Telegram rejected the message request`.
-- **`isOut` cannot tell you whether we replied.** It is relative to the account
-  making the request. Reading as `@Thrill_VIP_Ops`, a message Colton sent from
-  his own account comes back `isOut=false`, identical to a player message. Who
-  spoke is decided by sender Telegram id against `config/staff.json`, with the
-  `| Thrill` naming convention as a fallback for hosts not yet in the roster.
-- **Message history is only readable for chats the reader account belongs to.**
-  Other hosts' accounts return `CANONICAL_ACCOUNT_GRANT_REVOKED`, and that is
-  account membership rather than a key or scope problem: OAuth as an admin
-  returns the same two accounts. Adding `@Thrill_VIP_Ops` to a group is what
-  makes that group readable.
-- **The chat list still answers "who spoke last" without history**, because it
-  carries `lastMessage.sender.id`. That is the fallback tier for chats we
-  cannot read, and it is why coverage gaps degrade the detail rather than the
-  detection.
-- **Events are duplicated per connected account.** The same `messageId` appears
-  once per account that can see it, so anything built on `/v1/events` has to
-  dedupe on chat plus message id. History retention is about 30 days.
-- **`actionType` does not say who the action was performed on**, so a
-  `chatDeleteUser` alone cannot separate the player leaving from a host being
-  rotated off. Member count corroborates: these groups hold a stable staff set
-  plus one player, so one below the norm is the player.
-- **Custom fields are mostly empty.** `player_username` is set on some chats and
-  `tier` on almost none, so the player name is parsed from the chat title and
-  the custom fields are treated as enrichment when present. Where both existed
-  they agreed.
-- **Scope is a naming convention.** Hosted players are groups of 25 or fewer
-  whose title matches "x Thrill" in either ordering. That is 1248 chats. The
-  other 2300 are public community groups the affiliate account sits in, affiliate
-  deal rooms, channels and bots, and none of them belong in a player alert.
+## What the dashboard shows
 
-## Sentiment
+**Overview.** Hosted players, share contacted in the last seven days, players
+past seven days without contact, players waiting on a reply, unhappy players,
+median and p90 time to first reply. Every figure opens the matching set in the
+queue. A by-host table, the distribution of days since we last spoke, mood,
+state, reply-time distribution and a daily trend.
 
-Two passes. Rules run on every chat with fresh text, cost nothing, and catch
-what is unambiguous here: unresolved withdrawals, scam accusations, an explicit
-goodbye, a rival named as a destination. A model pass then runs only on chats
-whose player has said something new since the last score, capped by
-`SENTIMENT_BUDGET`, batched several chats per call.
+**Queue.** The worklist. Filters are URL parameters, so any view is a link:
+`/queue?f=no_contact`, `/queue?host=Colton`, `/queue?f=hosted&mood=at_risk`,
+`/queue?chat=<telegram id>`. Clicking a row opens the player: host and their
+share of our messages, when each side last spoke, reply times, sentiment with
+the quote it was read from, alerts sent, and the recent conversation read live
+from Entergram (never stored).
 
-The provider is whichever key is set, so switching from OpenAI to Anthropic
-later is an env change and nothing else. With no key at all the rules still
-run and everything else still works.
+**Hosts.** Per person: players, contacted in seven days, no contact, waiting,
+unhappy, ignoring, median and p90 reply. Plus unattributed players, unhosted
+chats and unreadable groups. Senders that look like staff but are not in the
+team table are listed with their Telegram id.
 
-Message text is passed to the model and dropped. Only the label and a
-one-line reason are stored, so player conversations never reach KV, the
-snapshot or the dashboard.
+**Activity.** Every scan with its mode, duration and outcome; every alert
+posted; consecutive failures.
 
-Why the model pass earns its cost, from a real chat in this workspace: a player
-explained he had been playing at a competitor, was losing there, wanted to come
-back, and asked for a bonus. He was declined, said thanks, and has not spoken
-since. Keyword rules score that neutral, because the only rival mention is
-attached to him leaving the rival rather than leaving us. It is a churn case
-and reads as one in context.
+## How a chat is read
 
-## Design decisions worth keeping
+**Scope.** Player chats are groups of 25 or fewer whose title matches
+"<player> x Thrill" in either ordering. Affiliate rooms, partnerships,
+channels and community groups are excluded. The workspace list carries one
+entry per connected account that knows a group, so entries are collapsed onto
+the Telegram id before anything else happens.
 
-**The first run does not post the backlog.** 877 of the 1248 chats were already
-past the quiet threshold on day one. Posting those would have buried the live
-signal permanently, so the first scan seeds the baseline, posts one summary, and
-alerts only on crossings after that. The backlog lives on the dashboard.
+**Who spoke.** `isOut` is relative to the account making the request and
+cannot tell staff from player. Every sender resolves against
+`config/team.json` by Telegram user id, then exact display name, then the
+"<name> | Thrill" convention. The shared @Thrill_VIP_Ops account is staff but
+nobody in particular. A sender seen across six or more separate player groups
+is treated as staff and listed on the Hosts page until added to the table.
 
-**A failed scan is not an empty queue.** Zero quiet players from a broken API
-looks exactly like nobody having gone quiet, so consecutive failures are counted
-and announced.
+**Host.** The hosting team member with the most messages in the group, recent
+speech first. Groups are worked as a pool, so the drawer shows every staff
+member active in the chat and the primary host's share. A chat whose only
+staff speaker no longer hosts is unhosted. Where history cannot be read, the
+owner of a personal connected account stands in; the shared account resolves
+to nobody.
 
-**Alerts fire once per player per threshold**, at 7, 30 and 90 days, not every
-tick. Dedupe is keyed on chat plus state plus tier in KV.
+**Facts and state.** A history read establishes facts (last player message,
+last staff message, whether the player closed the exchange, whether the player
+left, host, reply times) and those are persisted per chat. The state a chat is
+in is derived from facts and the clock on every tick, so it never flips between
+runs and never needs a re-read to update. Without readable history the chat
+list still says who spoke last: a last message from us dates our silence
+exactly, a last message from the player bounds it from below.
 
-**History is budgeted, not exhaustive.** A chat whose last message has not moved
-since it was last read cannot have changed, so it is skipped and its stored
-timestamps are reused. Only chats that actually moved cost an API call.
+**Acknowledgements.** A player signing off with thanks is not waiting on a
+reply, and a thank-you does not open a reply-time window.
 
-**A conversation the player closed is not a conversation waiting on a reply.**
-An exchange that ends with the player saying thanks reads as "player messaged,
-nobody replied" forever if you only compare timestamps. Short acknowledgements
-close the exchange, and the chat falls through to the silence rules instead.
+**Sentiment.** Rules on every chat with fresh player text, a model only on
+chats whose player has said something new, from the player's messages only.
+Text is passed to the model and dropped; only the label, reason and one short
+quote are stored.
 
-**Byron's chats are unhosted, not quiet.** He is no longer hosting, so his
-players are not slow to reply, they have nobody assigned. Different problem,
-kept off the alerts.
+## The scan
+
+Full sweep hourly: every chat, the book rebuilt, invite links refreshed.
+Incremental every other tick: only chats changed since the last tick
+(`updated_since`), merged into the book. History is read for chats that moved,
+for chats never read, and for a rotation through chats whose facts are older
+than `ROTATION_HOURS`. Groups the reader account cannot see are retried daily
+or when they move. A lock in KV stops overlapping runs; a soft deadline stops
+reads and alerts in time to persist.
+
+Consecutive failures are counted in KV and announced in Slack after
+`OUTAGE_ALERT_AFTER_FAILURES`; recovery is announced once.
 
 ## Setup
 
-1. Entergram key with `workspace.read`, `accounts.read`, `contacts.read`,
+1. Entergram PRO key with `workspace.read`, `accounts.read`, `contacts.read`,
    `chats.read`, `messages.read`, `members.read`, `custom_fields.read`,
-   `events.read`. **Leave the IP allowlist empty**, Vercel egress is not fixed.
-2. `.env.local` from `.env.example`, then `npm install`.
-3. `npm test` to check the rules, `probe.bat` / `probe2.bat` / `probe3.bat` for
-   live recon, `build-roster.bat` to rebuild the staff roster.
+   `events.read`. Leave the IP allowlist empty.
+2. `.env.local` from `.env.example`, `npm install`, `npm test`.
+3. `npm run dryrun` runs one scan against the live workspace with nothing
+   posted or persisted and prints what it would do. `dryrun.bat` on Windows.
+
+Message history is readable only for groups @Thrill_VIP_Ops is a member of.
+Adding the account to a group makes it readable on the next scan.
 
 ## Access
 
 The dashboard is behind Google SSO restricted to @paradym.io, the same
-next-auth setup as sonar-kyt, so there is one auth pattern across these tools.
-`/api/snapshot` is the only route that serves player data and it requires a
-session. `/api/health` answers liveness unauthenticated and needs `?deep=1`
-plus a session for anything descriptive. `/api/cron/scan` is machine-called and
-uses `CRON_SECRET` rather than SSO.
-
-Google Cloud Console setup is identical to sonar-kyt: OAuth consent screen User
-Type Internal, authorised redirect URI `https://<domain>/api/auth/callback/google`.
+next-auth setup as sonar-kyt. `/api/snapshot`, `/api/history` and
+`/api/chat/<id>` require a session. `/api/health` answers liveness
+unauthenticated and needs `?deep=1` plus a session for anything descriptive.
+`/api/cron/scan` uses `CRON_SECRET` as a bearer token; `?mode=full` forces a
+full sweep, `?dry=1` posts and persists nothing.
 
 ## Deploy
 
@@ -131,51 +126,50 @@ vercel link
 vercel env add ENTERGRAM_API_KEY production
 vercel env add SLACK_BOT_TOKEN production
 vercel env add SLACK_CHANNEL_ID production
+vercel env add DASHBOARD_URL production
 vercel env add CRON_SECRET production
 vercel env add OPENAI_API_KEY production
 vercel env add GOOGLE_CLIENT_ID production
 vercel env add GOOGLE_CLIENT_SECRET production
-vercel env add NEXTAUTH_SECRET production        # openssl rand -base64 32
-vercel env add NEXTAUTH_URL production           # https://<your-vercel-domain>
+vercel env add NEXTAUTH_SECRET production
+vercel env add NEXTAUTH_URL production
 vercel --prod
 ```
 
-Add the Upstash Redis (KV) integration from the Vercel dashboard and connect it
-to this project, which sets `KV_REST_API_URL` and `KV_REST_API_TOKEN`. Without
-it there is nowhere to record what has already been alerted and every tick
-re-alerts everything.
-
-`CRON_SECRET` is not optional. Without it the cron route returns 401 to
-everyone including Vercel. An unauthenticated endpoint that reads player
-conversations and posts to Slack is worse than a broken cron, so it refuses to
-run open.
+Add the Upstash Redis integration from the Vercel dashboard so
+`KV_REST_API_URL` and `KV_REST_API_TOKEN` are set. State is kept under `ew2:`
+keys; keys from the previous version expire on their own.
 
 ### Environment
 
 | Variable | What |
 |---|---|
 | `ENTERGRAM_API_KEY` | PRO key from Settings > Developers |
+| `ENTERGRAM_READER_ACCOUNT_ID` | Overrides the reader account in `config/team.json` |
 | `SLACK_BOT_TOKEN` / `SLACK_CHANNEL_ID` | The bot must be invited to the channel |
-| `CRON_SECRET` | Any long random string, Vercel sends it as a bearer token |
+| `DASHBOARD_URL` | Public URL used in alert links, falls back to `NEXTAUTH_URL` |
+| `CRON_SECRET` | Bearer token for the cron route |
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Set by the Upstash integration |
 | `QUIET_DAYS` | Default 7 |
 | `UNANSWERED_HOURS` | Default 12 |
-| `HISTORY_BUDGET` | History reads per run, default 150 |
-| `OUTAGE_ALERT_AFTER_FAILURES` | Default 5 |
+| `DORMANT_DAYS` | Default 90 |
+| `URGENT_ALERTS` | `on` (default) or `off` |
+| `MAX_ALERTS_PER_RUN` | Default 15 |
+| `OUTAGE_ALERT_AFTER_FAILURES` | Default 3 |
+| `FULL_SWEEP_MINUTES` | Default 60 |
+| `HISTORY_BUDGET` / `HISTORY_BUDGET_FULL` | History reads per incremental tick / full sweep, default 80 / 150 |
+| `ROTATION_HOURS` | Default 6 |
+| `STAFF_MIN_CHATS` | Distinct groups before an unknown sender counts as staff, default 6 |
 | `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` | Sentiment. Whichever is set picks the provider |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | SSO, OAuth client in the paradym.io Workspace |
+| `SENTIMENT_BUDGET` | Model-scored chats per run, default 40 |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | SSO |
 | `NEXTAUTH_SECRET` / `NEXTAUTH_URL` | SSO session signing and callback base |
 | `ALLOWED_HD` | Default paradym.io |
 
-### First run
+## Team table
 
-`/api/cron/scan?dry=1` with the bearer token runs the whole thing and posts
-nothing. Worth doing once before letting the schedule take over.
-
-## Coverage
-
-History is readable for the chats `@Thrill_VIP_Ops` belongs to. Everything else
-falls back to the chat list, which still detects silence and who spoke last but
-cannot separate "the player is ignoring us" from "we are ignoring the player".
-Adding that account to the remaining groups closes the gap, and the scan picks
-them up on the next run with no code change.
+`config/team.json` is the single source of truth for who is staff and who
+hosts. Each member carries `telegramUserIds`, `senderNames`,
+`telegramUsernames`, personal `accounts`, and `hosting: false` for staff whose
+messages are ours but who never become a player's host. New hosts go here;
+the Hosts page lists unresolved senders with the id to add.
