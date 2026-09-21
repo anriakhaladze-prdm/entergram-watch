@@ -25,6 +25,20 @@ export default function PlayerDrawer({ row, onClose }) {
   if (!row) return null;
   const st = STATE[row.state] || { label: row.state, tone: 'gray' };
   const mood = MOODS.find((x) => x.key === row.sentiment?.label);
+  const live = conv?.customFields || {};
+  const profile = {
+    tier: live.tier ?? row.tier,
+    accountStatus: live.account_status ?? row.accountStatus,
+    selfExcludedUntil: live.self_excluded_until ?? row.selfExcludedUntil,
+    signupDate: live.signup_date ?? row.signupDate,
+    typicalBetUsd: live.typical_bet_usd ?? row.typicalBetUsd,
+    sportsbook: live.sportsbook ?? row.sportsbook,
+    originals: live.originals ?? row.originals,
+    slots: live.slots ?? row.slots,
+    liveCasino: live.live_casino ?? row.liveCasino,
+    favouriteGames: live.favourite_games ?? row.favouriteGames,
+    favouriteProviders: live.favourite_providers ?? row.favouriteProviders,
+  };
   const posted = Object.entries(row.alerts || {}).filter(([, v]) => v && !v.seeded);
   const copyTitle = () => navigator.clipboard?.writeText(row.title).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {});
   // Entergram has no per-chat URL, so the name goes on the clipboard and the
@@ -48,8 +62,8 @@ export default function PlayerDrawer({ row, onClose }) {
               <div className="ow-drawer-name typ-heading-small">{row.playerUsername || row.player}</div>
               <div className="ow-drawer-sub">
                 <Badge tone={st.tone}>{st.label}</Badge>
-                {row.tier ? <span className={`ow-tier ow-tier-${tierTone(row.tier)}`}>{tierLabel(row.tier)}</span> : null}
-                {row.accountStatus ? <span className={`ow-account ow-account-${row.accountStatus}`}>{accountStatusLabel(row.accountStatus)}</span> : null}
+                {profile.tier ? <span className={`ow-tier ow-tier-${tierTone(profile.tier)}`}>{tierLabel(profile.tier)}</span> : null}
+                {profile.accountStatus ? <span className={`ow-account ow-account-${profile.accountStatus}`}>{accountStatusLabel(profile.accountStatus)}</span> : null}
                 {mood && mood.key !== 'neutral' ? <Badge tone={mood.tone}>{mood.label}</Badge> : null}
                 <span className="ow-sub typ-label-small">{row.title}</span>
               </div>
@@ -72,14 +86,14 @@ export default function PlayerDrawer({ row, onClose }) {
               {fact('Last message', row.lastMessageAt ? `${age(row.quietDays)} ago` : '–')}
               {fact('First reply', row.reply ? <>median {mins(row.reply.medianMins)}<span className="ow-sub"> · p90 {mins(row.reply.p90Mins)} · worst {mins(row.reply.worstMins)} · {row.reply.samples} exchanges</span></> : '–', 'ow-wrap')}
               {fact('Members', row.membersCount ?? '–')}
-              {fact('Tier', row.tier ? tierLabel(row.tier) : '–')}
-              {fact('Account status', accountStatusLabel(row.accountStatus) || '–')}
-              {fact('Self-excluded until', row.selfExcludedUntil ? shortDate(row.selfExcludedUntil) : '–')}
-              {fact('Signup date', shortDate(row.signupDate))}
-              {fact('Typical bet', row.typicalBetUsd != null ? money(row.typicalBetUsd) : '–')}
-              {fact('Products', [row.sportsbook && 'Sportsbook', row.originals && 'Originals', row.slots && 'Slots', row.liveCasino && 'Live casino'].filter(Boolean).join(', ') || '–')}
-              {fact('Favourite games', row.favouriteGames || '–', 'ow-wrap')}
-              {fact('Favourite providers', row.favouriteProviders?.length ? row.favouriteProviders.map((p) => p.replace(/_/g, ' ')).join(', ') : '–', 'ow-wrap')}
+              {fact('Tier', profile.tier ? tierLabel(profile.tier) : '–')}
+              {fact('Account status', accountStatusLabel(profile.accountStatus) || '–')}
+              {fact('Self-excluded until', profile.selfExcludedUntil ? shortDate(profile.selfExcludedUntil) : '–')}
+              {fact('Signup date', shortDate(profile.signupDate))}
+              {fact('Typical bet', profile.typicalBetUsd != null ? money(profile.typicalBetUsd) : '–')}
+              {fact('Products', [profile.sportsbook && 'Sportsbook', profile.originals && 'Originals', profile.slots && 'Slots', profile.liveCasino && 'Live casino'].filter(Boolean).join(', ') || '–')}
+              {fact('Favourite games', profile.favouriteGames || '–', 'ow-wrap')}
+              {fact('Favourite providers', profile.favouriteProviders?.length ? profile.favouriteProviders.map((p) => p.replace(/_/g, ' ')).join(', ') : '–', 'ow-wrap')}
             </div>
 
             {row.staffSpeakers?.length ? (

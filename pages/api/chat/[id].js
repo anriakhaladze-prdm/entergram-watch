@@ -9,7 +9,12 @@ export default async function handler(req, res) {
   const id = String(req.query.id || '');
   if (!/^-?\d+$/.test(id)) return res.status(400).json({ error: 'bad chat id' });
   const limit = Math.min(60, Math.max(10, Number(req.query.limit) || 40));
-  const out = await readConversation(createClient(), id, { limit });
+  const api = createClient();
+  const [out, fields] = await Promise.all([
+    readConversation(api, id, { limit }),
+    api.chatCustomFields(id).catch(() => null),
+  ]);
+  out.customFields = fields?.data?.values || fields?.values || null;
   res.setHeader('cache-control', 'private, no-store');
   res.status(200).json(out);
 }

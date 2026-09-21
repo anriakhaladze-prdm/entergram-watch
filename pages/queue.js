@@ -186,7 +186,7 @@ export default function Queue() {
                   const mood = r.sentiment?.label;
                   return (
                     <div className="th-grid-row is-link" key={r.chatId} onClick={() => setParams({ chat: r.chatId })} role="link" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setParams({ chat: r.chatId }); }}>
-                      {cell(<span className="ow-player-cell"><span className="ow-player-name">{r.playerUsername || r.player || r.title}</span><span className="ow-player-badges">{r.tier ? <span className={`ow-tier ow-tier-${tierTone(r.tier)}`}>{tierLabel(r.tier)}</span> : null}{r.accountStatus && r.accountStatus !== 'active' ? <span className={`ow-account ow-account-${r.accountStatus}`}>{accountStatusLabel(r.accountStatus)}</span> : null}</span></span>)}
+                      {cell(<span className="ow-player-cell"><span className="ow-player-name">{r.playerUsername || r.player || r.title}</span><span className="ow-player-badges">{r.tier ? <span className={`ow-tier ow-tier-${tierTone(r.tier)}`}>{tierLabel(r.tier)}</span> : null}{r.accountStatus ? <span className={`ow-account ow-account-${r.accountStatus}`}>{accountStatusLabel(r.accountStatus)}</span> : null}</span></span>)}
                       {cell(<Badge tone={st.tone}>{st.label}</Badge>)}
                       {cell(r.lastStaffAt ? age(r.staffQuietDays) : (r.noContactDays != null ? `${age(r.noContactDays)}+` : <span className="ow-muted">?</span>), `ow-nums${(r.noContactDays ?? 0) >= 7 ? ' ow-warn' : ''}`)}
                       {cell(r.lastPlayerAt ? age(r.playerQuietDays) : <span className="ow-muted">·</span>, `ow-nums${r.flags.waiting ? ' ow-stale' : ''}`)}

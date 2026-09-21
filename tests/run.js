@@ -436,7 +436,9 @@ const workspace = () => {
 await t('first run seeds the backlog silently, builds the book once per group, and posts one summary', async () => {
   const up = useKv();
   const { chats, messages } = workspace();
-  const api = fakeEntergram({ chats, messages });
+  const api = fakeEntergram({ chats, messages, customFields: {
+    '-5000000005': { player_username: 'testplayer5', tier: 'emerald_1', account_status: 'active', typical_bet_usd: 12.5, favourite_games: 'Blackjack', favourite_providers: ['evolution_gaming'], sportsbook: true },
+  } });
   const slack = fakeSlack();
   const r = await runScan({ api, now: NOW, log: () => {}, post: slack.post, alertGapMs: 0 });
   eq(r.ok, true); eq(r.mode, 'full');
@@ -448,6 +450,9 @@ await t('first run seeds the backlog silently, builds the book once per group, a
   const s5 = up.get('ew2:chat:-5000000005'); ok(s5.alerts.no_contact.seeded, 'seeded record');
   ok(s5.facts, 'history read'); eq(s5.facts.staffSpeakers[0].name, 'Colton');
   const snap = await kv.getSnapshot(); eq(snap.rows.length, 7); eq(snap.summary.hosted, 7);
+  const enriched = snap.rows.find((row) => row.chatId === '-5000000005');
+  eq(enriched.playerUsername, 'testplayer5'); eq(enriched.tier, 'emerald_1'); eq(enriched.accountStatus, 'active'); eq(enriched.typicalBetUsd, 12.5); eq(enriched.sportsbook, true);
+  eq(api.calls.filter((c) => c[0] === 'customFields').length, 7, 'full player book custom fields refreshed independently of history cache');
 });
 
 await t('second run is incremental, touches only changed chats, and alerts nothing that was seeded', async () => {
