@@ -184,6 +184,7 @@ export default function Queue() {
                 {shown.map((r) => {
                   const st = STATE[r.state] || { label: r.state, tone: 'gray' };
                   const mood = r.sentiment?.label;
+                  const profileLoaded = Boolean(r.accountStatus || r.tier || r.signupDate || r.favouriteGames || r.typicalBetUsd != null);
                   return (
                     <div className="th-grid-row is-link" key={r.chatId} onClick={() => setParams({ chat: r.chatId })} role="link" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setParams({ chat: r.chatId }); }}>
                       {cell(<span className="ow-player-cell"><span className="ow-player-name">{r.playerUsername || r.player || r.title}</span><span className="ow-player-badges">{r.tier ? <span className={`ow-tier ow-tier-${tierTone(r.tier)}`}>{tierLabel(r.tier)}</span> : null}{r.accountStatus ? <span className={`ow-account ow-account-${r.accountStatus}`}>{accountStatusLabel(r.accountStatus)}</span> : null}</span></span>)}
@@ -192,7 +193,7 @@ export default function Queue() {
                       {cell(r.lastPlayerAt ? age(r.playerQuietDays) : <span className="ow-muted">·</span>, `ow-nums${r.flags.waiting ? ' ow-stale' : ''}`)}
                       {cell(r.reply ? mins(r.reply.medianMins) : <span className="ow-muted">·</span>, 'ow-nums ow-sub')}
                       {cell(mood && mood !== 'neutral' ? <span className={`ow-mood ow-mood-${mood}`}>{mood.replace('_', ' ')}</span> : <span className="ow-muted">–</span>)}
-                      {cell(<span className="ow-profile-cell" title={[r.favouriteGames, (r.favouriteProviders || []).join(', ')].filter(Boolean).join(' · ')}><span className="ow-profile-main">{r.typicalBetUsd != null ? `${money(r.typicalBetUsd)} median` : 'No casino bets'}{r.sportsbook ? ' · Sportsbook' : ''}{r.originals ? ' · Originals' : ''}{r.slots ? ' · Slots' : ''}{r.liveCasino ? ' · Live' : ''}</span><span className="ow-profile-sub">{r.favouriteGames || (r.favouriteProviders || []).join(', ') || `Joined ${shortDate(r.signupDate)}`}</span></span>)}
+                      {cell(<span className="ow-profile-cell" title={[r.favouriteGames, (r.favouriteProviders || []).join(', ')].filter(Boolean).join(' · ')}><span className={`ow-profile-main${profileLoaded ? '' : ' ow-profile-pending'}`}>{profileLoaded ? (r.typicalBetUsd != null ? `${money(r.typicalBetUsd)} median` : 'No casino bets') : 'Profile pending'}{r.sportsbook ? ' · Sportsbook' : ''}{r.originals ? ' · Originals' : ''}{r.slots ? ' · Slots' : ''}{r.liveCasino ? ' · Live' : ''}</span><span className="ow-profile-sub">{profileLoaded ? (r.favouriteGames || (r.favouriteProviders || []).join(', ') || `Joined ${shortDate(r.signupDate)}`) : 'Waiting for attribute refresh'}</span></span>)}
                     </div>
                   );
                 })}

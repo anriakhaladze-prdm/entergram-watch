@@ -219,6 +219,7 @@
 .ow-account-frozen { color: var(--color-badge-red); background: color-mix(in oklab, var(--color-badge-red) 12%, transparent); }
 .ow-account-self_excluded { color: var(--color-badge-orange); background: color-mix(in oklab, var(--color-badge-orange) 13%, transparent); }
 .ow-profile-main { color: var(--color-foreground-text); font-weight: 650; }
+.ow-profile-pending { color: var(--color-foreground-muted-2); }
 .ow-profile-sub { color: var(--color-foreground-muted-2); font-size: 11px; }
 .ow-warn { color: var(--color-badge-yellow); }
 .ow-grid-inline { padding-top: var(--spacing-8); }
