@@ -25,6 +25,7 @@ const TABS = [
   { key: 'access', label: 'Sign-ins' },
   { key: 'scans', label: 'Scans' },
   { key: 'alerts', label: 'Alerts' },
+  { key: 'excluded', label: 'Excluded' },
 ];
 const cell = (c, cls = '') => <div className="th-grid-cell"><div><span className={`th-grid-cell-inner typ-label-medium ${cls}`}>{c}</span></div></div>;
 const Grid = ({ cols, children, empty, count }) => (
@@ -273,6 +274,40 @@ function Scans({ h, unidentified }) {
   );
 }
 
+// Chats the shared account can see that the tool leaves out, with the reason.
+function Excluded() {
+  const { data, error } = useJson('/api/logs/excluded');
+  const rows = data?.entries || [];
+  const [q, setQ] = useState('');
+  const term = q.trim().toLowerCase();
+  const shown = term ? rows.filter((r) => `${r.title} ${r.reason}`.toLowerCase().includes(term)) : rows;
+  const cols = [{ label: 'Chat', w: 'minmax(240px, 1.6fr)' }, { label: 'Accounts', w: 'minmax(160px, 1fr)' }, { label: 'Members', w: '100px', num: true }, { label: 'Last message', w: '150px' }, { label: 'Reason', w: 'minmax(180px, 1fr)' }];
+  if (error) return <div className="th-grid-empty typ-label-medium">{error}</div>;
+  return (
+    <>
+      <div className="ow-blockform">
+        <div className="th-field th-field-search ow-field-wide">
+          <span className="th-field-body">
+            <Icon name="search" size={12} />
+            <input type="text" placeholder="Search chat or reason" autoComplete="off" spellCheck={false} value={q} onChange={(e) => setQ(e.target.value)} />
+          </span>
+        </div>
+      </div>
+      <Grid cols={cols} count={shown.length} empty="Nothing left out">
+        {shown.map((r) => (
+          <div className="th-grid-row" key={r.chatId}>
+            {cell(r.title || r.chatId, 'ow-clip')}
+            {cell((r.accounts || []).join(', ') || '–', 'ow-sub ow-clip')}
+            {cell(r.members ?? '–', 'ow-nums ow-sub')}
+            {cell(r.lastMessageAt ? when(r.lastMessageAt) : '–', 'ow-sub')}
+            {cell(r.reason, 'ow-sub ow-clip')}
+          </div>
+        ))}
+      </Grid>
+    </>
+  );
+}
+
 function Alerts({ h }) {
   const router = useRouter();
   const alerts = h?.alerts || [];
@@ -318,6 +353,7 @@ export default function Logs() {
     if (tab === 'sessions') return <Sessions />;
     if (tab === 'blocked') return <Blocked />;
     if (tab === 'scans') return <Scans h={h} unidentified={summary?.unidentified || []} />;
+    if (tab === 'excluded') return <Excluded />;
     return <Alerts h={h} />;
   }, [monitor, tab, h, summary]);
 

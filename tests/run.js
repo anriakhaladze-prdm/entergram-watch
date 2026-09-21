@@ -1,6 +1,6 @@
 // Regression tests for the rules that decide whether a human gets pinged, and
 // for the scan itself, run end to end against in-memory doubles.
-import { isPlayerChat, playerNameFromTitle, dedupeChats, chatMeta, isInScope, SCOPE_ACCOUNTS } from '../lib/scope.js';
+import { isPlayerChat, playerNameFromTitle, excludeReason, dedupeChats, chatMeta, isInScope, SCOPE_ACCOUNTS } from '../lib/scope.js';
 import { extractFacts, normalizeMessage, isAcknowledgement, departureTarget, departureIsPlayer } from '../lib/facts.js';
 import { deriveRow, summarize } from '../lib/derive.js';
 import { dueAlerts, orderAlerts, formatAlert, prettyTier } from '../lib/alerts.js';
@@ -56,7 +56,22 @@ await t('affiliate and partnership rooms and big communities are not player chat
   eq(isPlayerChat(chat({ title: 'Thrill <> Nbavipbox Partnership (85029)' })), false);
   eq(isPlayerChat(chat({ title: 'BetBodya x Thrill', membersCount: 5989 })), false);
 });
-await t('player name is extracted', () => { eq(playerNameFromTitle('swish718 x Thrill.com'), 'swish718'); eq(playerNameFromTitle('Thrill.com x Shrimpmoneyy VIP'), 'Shrimpmoneyy'); });
+await t('player name is extracted from every spelling the groups use', () => {
+  eq(playerNameFromTitle('swish718 x Thrill.com'), 'swish718'); eq(playerNameFromTitle('Thrill.com x Shrimpmoneyy VIP'), 'Shrimpmoneyy');
+  eq(playerNameFromTitle('doineedaname | Thrill VIP'), 'doineedaname'); eq(playerNameFromTitle('Foldpisty - Thrill'), 'Foldpisty');
+  eq(playerNameFromTitle('WhyRUgey- Thrill.com'), 'WhyRUgey'); eq(playerNameFromTitle('Hartigan420 x thri.com'), 'Hartigan420');
+  eq(playerNameFromTitle('Eco27 thrill / VIp group / HighPriest'), 'Eco27'); eq(playerNameFromTitle('streamer Bob x Thrill'), 'Bob');
+  eq(playerNameFromTitle('Thrill Community Chat'), null); eq(playerNameFromTitle('Vip host test'), null);
+});
+await t('a player writing to the shared account directly is a chat; service, vendor and staff chats are not', () => {
+  eq(excludeReason({ type: 'private', title: 'Icesol' }), null);
+  eq(excludeReason({ type: 'private', title: 'Telegram' }), 'service chat');
+  eq(excludeReason({ type: 'private', title: 'Denis | entergram.com Entergram' }), 'service chat');
+  eq(excludeReason({ type: 'private', title: 'Andy | Thrill FK' }), 'staff chat');
+  eq(excludeReason({ type: 'group', title: 'VIP Support Test', membersCount: 4 }), 'no player in the title');
+  eq(excludeReason({ type: 'group', title: 'BetBodya x Thrill', membersCount: 5989 }), '5989 members');
+  eq(chatMeta({ telegramId: '-1', type: 'private', title: 'Icesol', connectedAccount: { username: 'Thrill_VIP_Ops' } }).player, 'Icesol');
+});
 await t('the same Telegram group listed under two accounts collapses to one chat with both accounts', () => {
   const a = chat({ id: 'u1', connectedAccount: { id: 'a1', username: 'Thrill_VIP_Ops' }, lastMessageDate: ago(2) });
   const b = chat({ id: 'u2', connectedAccount: { id: 'a2', username: 'mikeythrillaffiliate' }, lastMessageDate: ago(1), lastMessage: { date: ago(1), isOut: false, sender: { id: COLTON } } });
@@ -508,6 +523,29 @@ await t('an unreadable group gets its timing from the event stream and is classi
   api.calls.length = 0;
   await runScan({ api, now: NOW + 5 * 60000, log: () => {}, post: slack.post, alertGapMs: 0 });
   eq(api.calls.filter((c) => c[0] === 'events').length, 1); eq(api.calls.find((c) => c[0] === 'events')[1], 5, 'resumes from the stored cursor');
+});
+
+await t('scope is the shared account\'s own group membership, whatever account the chat row arrived under', async () => {
+  const up = useKv();
+  const { chats, messages } = workspace();
+  // Two extra groups, both filed under a personal account: one the shared
+  // account is a member of, one it is not.
+  const mine = { id: 'ux', telegramId: '-5000000090', title: 'inscope x Thrill.com', type: 'group', membersCount: 8, connectedAccount: { id: 'acct-byron', username: 'byronthrill' }, lastMessageDate: ago(1), updatedAt: ago(1), lastMessage: { date: ago(1), isOut: false, sender: { id: PLAYER } } };
+  const theirs = { ...mine, id: 'uy', telegramId: '-5000000091', title: 'outofscope x Thrill.com' };
+  messages['-5000000090'] = [{ id: 1, date: ago(1), isOut: false, sender: { id: COLTON, name: 'Colton | Thrill VIP' }, text: 'hi' }];
+  messages['-5000000091'] = [{ id: 1, date: ago(1), isOut: false, sender: { id: COLTON, name: 'Colton | Thrill VIP' }, text: 'hi' }];
+  const groups = [...chats, mine].map((c) => ({ telegramChatId: c.telegramId, inviteLink: null }));
+  const api = fakeEntergram({ chats: [...chats, mine, theirs], messages, groups });
+  const r = await runScan({ api, now: NOW, log: () => {}, post: fakeSlack().post, alertGapMs: 0 });
+  const ids = (await kv.getBook()).chats.map((c) => c.chatId);
+  eq(ids.includes('-5000000090'), true, 'in the membership set, so in the book even under another account');
+  eq(ids.includes('-5000000091'), false, 'not in the membership set and not under the shared account');
+  eq(up.get('ew2:meta').scopeIds.length, new Set(groups.map((g) => g.telegramChatId)).size, 'the membership set is kept for the incremental ticks');
+  // Everything left out is accounted for, with the reason.
+  const left = Object.fromEntries((await kv.getExcluded()).map((e) => [e.chatId, e.reason]));
+  eq(left['-5000000091'], 'not in the shared account');
+  eq(left['-5000000008'], 'deal room', 'the affiliate room the shared account is in');
+  ok(r.ok);
 });
 
 await t('a concurrent run is skipped while the lock is held', async () => {

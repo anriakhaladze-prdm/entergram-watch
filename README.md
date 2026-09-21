@@ -58,8 +58,10 @@ removing one ends its sessions), Blocked (refused even if allowed; blocking
 ends sessions too), Sessions (open sessions, each revocable), Sign-ins (every
 sign-in and every refused attempt, with device and address), Scans (every run
 with its mode, duration and outcome, plus staff-shaped senders missing from
-the team table) and Alerts (every alert posted). The Logs entry is only shown
-to whitelisted accounts and every route behind it refuses everyone else.
+the team table), Alerts (every alert posted) and Excluded (every chat in the
+workspace that did not make the book, with the reason). The Logs
+entry is only shown to whitelisted accounts and every route behind it refuses
+everyone else.
 
 Access is an allow-list: an account signs in only if it is on the whitelist,
 on `ALLOWED_EMAILS`, or added under Logs, and is not blocked. Everyone else on
@@ -67,14 +69,31 @@ the Workspace domain is refused at sign-in.
 
 ## How a chat is read
 
-**Scope.** Player chats are groups of 25 or fewer whose title matches
-"<player> x Thrill" in either ordering, that the team's shared account
-(@Thrill_VIP_Ops, `SCOPE_ACCOUNTS`) is a member of. That is the set the team
-sees in Entergram; the workspace API also returns every group any member's
-personal account was ever in, most of them long dead, and those are left out.
-Affiliate rooms, partnerships, channels and community groups are excluded. The
-workspace list carries one entry per connected account that knows a group, so
-entries are collapsed onto the Telegram id before anything else happens.
+**Scope.** Everything the team's shared account can see in Entergram, less
+what is not a player.
+
+What it can see comes from `/v1/groups` for the reader account: the groups
+that Telegram says the shared account is a member of. The chat list cannot
+answer this, because it carries one row per connected account and which
+account owns a row is an accident of who synced it first, so a group the
+shared account sits in can arrive filed under somebody else. The membership
+set is refreshed on every full sweep and kept for the incremental ticks; if
+the call fails, the account on the row is the fallback, so a bad call narrows
+nothing. Private chats are not in that endpoint, so the account on the row
+always carries those.
+
+What counts as a player: groups of 25 or fewer whose title names a player next
+to the Thrill token, in any of the spellings in use ("swish718 x Thrill.com",
+"Thrill.com x Shrimpmoneyy VIP", "Foldpisty - Thrill", "Snax | Thrill",
+"WhyRUgey- Thrill.com", "Hartigan420 x thri.com", "Eco27 thrill / VIp group"),
+and private chats where a player writes to the shared account directly.
+Affiliate rooms, partnerships, test groups, community groups, the Telegram
+service chat, the vendor's chat and colleagues' direct chats are left out.
+
+Logs → Excluded accounts for the rest: everything in the workspace that did
+not make the book, each row with the reason, whether it is in scope but not a
+player chat or player-shaped but outside the shared account. Entries are
+collapsed onto the Telegram id before any of this happens.
 
 **Who spoke.** `isOut` is relative to the account making the request and
 cannot tell staff from player. Every sender resolves against
@@ -191,7 +210,8 @@ keys; keys from the previous version expire on their own.
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Set by the Upstash integration |
 | `QUIET_DAYS` | Default 7 |
 | `UNANSWERED_HOURS` | Default 12 |
-| `SCOPE_ACCOUNTS` | Connected-account usernames whose groups are in scope, default the shared accounts in `config/team.json` |
+| `SCOPE_ACCOUNTS` | Connected-account usernames that put a chat in scope when group membership cannot, default the shared accounts in `config/team.json` |
+| `EXCLUDED_MAX` | Rows kept for Logs → Excluded, default 300 |
 | `EVENTS_PAGES_PER_TICK` / `EVENTS_BACKFILL_DAYS` | Event stream pages per tick and how far the first run backfills, default 25 / 10 |
 | `URGENT_ALERTS` | `on` (default) or `off` |
 | `ALERT_COOLDOWN_HOURS` | One alert per conversation per this many hours, default 24 |
