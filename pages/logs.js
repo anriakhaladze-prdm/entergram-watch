@@ -19,9 +19,10 @@ const ago = (v) => {
   return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
 };
 const TABS = [
-  { key: 'access', label: 'Access' },
-  { key: 'sessions', label: 'Sessions' },
+  { key: 'allowed', label: 'Allowed' },
   { key: 'blocked', label: 'Blocked' },
+  { key: 'sessions', label: 'Sessions' },
+  { key: 'access', label: 'Sign-ins' },
   { key: 'scans', label: 'Scans' },
   { key: 'alerts', label: 'Alerts' },
 ];
@@ -60,7 +61,7 @@ function Access() {
     <Grid cols={cols} count={rows.length} empty="No sign-ins recorded">
       {rows.map((e, i) => (
         <div className="th-grid-row" key={`${e.at}-${i}`}>
-          {cell(<>{e.email}{e.denied ? <span className="ow-inline-badge"><Badge tone="red">Denied</Badge></span> : null}</>, 'ow-clip')}
+          {cell(<>{e.email}{e.denied ? <span className="ow-inline-badge"><Badge tone="red">{e.reason === 'blocked' ? 'Blocked' : 'Not allowed'}</Badge></span> : null}</>, 'ow-clip')}
           {cell(e.name || '–', 'ow-sub ow-clip')}
           {cell(e.device || '–', 'ow-sub ow-clip')}
           {cell(e.ip || '–', 'ow-nums ow-sub')}
@@ -120,6 +121,62 @@ function Sessions() {
           </div>
         </div>
       ) : null}
+    </>
+  );
+}
+
+function Allowed() {
+  const { data, error, reload } = useJson('/api/logs/allowed');
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState(null);
+  const rows = data?.entries || [];
+  const monitors = data?.monitors || [];
+  const configured = data?.configured || [];
+  const cols = [{ label: 'Email', w: 'minmax(240px, 1.6fr)' }, { label: 'Added by', w: 'minmax(200px, 1fr)' }, { label: 'When', w: '170px' }, { label: '', w: '120px' }];
+  const send = async (method, body) => {
+    setBusy(true); setNote(null);
+    try {
+      const r = await fetch('/api/logs/allowed', { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      const j = await r.json();
+      if (!r.ok || j.error) { setNote(j.error || `HTTP ${r.status}`); return; }
+      if (method === 'POST') setText('');
+      await reload();
+    } finally { setBusy(false); }
+  };
+  if (error) return <div className="th-grid-empty typ-label-medium">{error}</div>;
+  return (
+    <>
+      <form className="ow-blockform" onSubmit={(e) => { e.preventDefault(); if (text.trim()) send('POST', { emails: text }); }}>
+        <div className="th-field th-field-search ow-field-wide">
+          <span className="th-field-body">
+            <input type="text" placeholder={`name@${data?.domain || 'paradym.io'}, name@${data?.domain || 'paradym.io'}`} autoComplete="off" spellCheck={false} value={text} onChange={(e) => setText(e.target.value)} />
+          </span>
+        </div>
+        <button type="submit" className="th-pill th-pill-primary focusable" disabled={busy || !text.trim()}><span className="th-pill-label typ-label-medium">Allow</span></button>
+        {note ? <span className="ow-stale typ-label-small">{note}</span> : null}
+      </form>
+      <Grid cols={cols} count={rows.length + monitors.length + configured.length} empty="Nobody allowed">
+        {monitors.map((e) => (
+          <div className="th-grid-row" key={`mon-${e}`}>
+            {cell(<>{e}<span className="ow-inline-badge"><Badge tone="green">Whitelist</Badge></span></>, 'ow-clip')}
+            {cell('–', 'ow-sub')}{cell('–', 'ow-sub')}{cell('')}
+          </div>
+        ))}
+        {configured.map((e) => (
+          <div className="th-grid-row" key={`cfg-${e}`}>
+            {cell(e, 'ow-clip')}{cell('Environment', 'ow-sub')}{cell('–', 'ow-sub')}{cell('')}
+          </div>
+        ))}
+        {rows.map((r) => (
+          <div className="th-grid-row" key={r.email}>
+            {cell(r.email, 'ow-clip')}
+            {cell(r.by || '–', 'ow-sub ow-clip')}
+            {cell(when(r.at), 'ow-sub')}
+            {cell(<button type="button" className="th-chip typ-label-small ow-chip-danger" onClick={() => send('DELETE', { email: r.email })} disabled={busy}>Remove</button>)}
+          </div>
+        ))}
+      </Grid>
     </>
   );
 }
@@ -238,7 +295,7 @@ export default function Logs() {
   const s = useSnapshot();
   const { session, status: authStatus, snap, summary } = s;
   const router = useRouter();
-  const tab = TABS.some((t) => t.key === router.query.tab) ? String(router.query.tab) : 'access';
+  const tab = TABS.some((t) => t.key === router.query.tab) ? String(router.query.tab) : 'allowed';
   const [h, setH] = useState(null);
   useEffect(() => { if (session?.monitor) fetch('/api/history').then((r) => (r.ok ? r.json() : null)).then(setH).catch(() => {}); }, [snap?.generatedAt, session?.monitor]);
   const status = <ScanStatus {...s} compact />;
@@ -247,7 +304,7 @@ export default function Logs() {
   const toolbar = monitor ? (
     <div className="th-subtabs th-subtabs-section ow-tabs">
       {TABS.map((t) => (
-        <button type="button" key={t.key} className={`th-pill focusable${tab === t.key ? ' th-pill-selected' : ''}`} onClick={() => router.replace({ pathname: '/logs', query: t.key === 'access' ? {} : { tab: t.key } }, undefined, { shallow: true })} aria-pressed={tab === t.key}>
+        <button type="button" key={t.key} className={`th-pill focusable${tab === t.key ? ' th-pill-selected' : ''}`} onClick={() => router.replace({ pathname: '/logs', query: t.key === 'allowed' ? {} : { tab: t.key } }, undefined, { shallow: true })} aria-pressed={tab === t.key}>
           <span className="th-pill-label typ-label-medium">{t.label}</span>
         </button>
       ))}
@@ -256,6 +313,7 @@ export default function Logs() {
 
   const body = useMemo(() => {
     if (!monitor) return null;
+    if (tab === 'allowed') return <Allowed />;
     if (tab === 'access') return <Access />;
     if (tab === 'sessions') return <Sessions />;
     if (tab === 'blocked') return <Blocked />;

@@ -53,13 +53,17 @@ server side in the dashboard's own style with the Oxanium weights in
 the chat name and opens the app for one paste into its search.
 
 **Logs.** For the monitoring whitelist only (`MONITORING_EMAILS`, by default
-Anri and Shane): Access (every sign-in and every refused attempt, with device
-and address), Sessions (open sessions, each revocable), Blocked (the
-dashboard-managed block-list; blocking an address ends its sessions), Scans
-(every run with its mode, duration and outcome, plus staff-shaped senders
-missing from the team table) and Alerts (every alert posted). The Logs entry
-is only shown to whitelisted accounts and every route behind it refuses
-everyone else.
+Anri and Shane): Allowed (who may sign in; one or many addresses at a time,
+removing one ends its sessions), Blocked (refused even if allowed; blocking
+ends sessions too), Sessions (open sessions, each revocable), Sign-ins (every
+sign-in and every refused attempt, with device and address), Scans (every run
+with its mode, duration and outcome, plus staff-shaped senders missing from
+the team table) and Alerts (every alert posted). The Logs entry is only shown
+to whitelisted accounts and every route behind it refuses everyone else.
+
+Access is an allow-list: an account signs in only if it is on the whitelist,
+on `ALLOWED_EMAILS`, or added under Logs, and is not blocked. Everyone else on
+the Workspace domain is refused at sign-in.
 
 ## How a chat is read
 
@@ -205,9 +209,10 @@ keys; keys from the previous version expire on their own.
 | `SENTIMENT_WINDOW_MINUTES` / `SENTIMENT_MIN_MESSAGES` | The exchange the mood is read from: minutes before the player's last message, minimum player messages. Default 60 / 3 |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | SSO |
 | `NEXTAUTH_SECRET` / `NEXTAUTH_URL` | SSO session signing and callback base |
-| `ALLOWED_HD` | Default paradym.io |
-| `MONITORING_EMAILS` | Accounts that see Logs and can revoke sessions or block accounts, default `anri.akhaladze@paradym.io,shane.austin@paradym.io` |
-| `BLOCKED_EMAILS` | Addresses refused at sign-in even on the domain, in addition to the list managed under Logs |
+| `ALLOWED_HD` | Workspace domain shown to the Google account picker, default paradym.io |
+| `MONITORING_EMAILS` | Accounts that see Logs and manage access, always allowed in, default `anri.akhaladze@paradym.io,shane.austin@paradym.io` |
+| `ALLOWED_EMAILS` | Addresses allowed in from the environment, in addition to the list managed under Logs |
+| `BLOCKED_EMAILS` | Addresses refused at sign-in, in addition to the list managed under Logs |
 
 ## Team table
 

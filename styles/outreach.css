@@ -259,6 +259,7 @@
 .th-chip:disabled { opacity: .5; cursor: default; }
 .ow-blockform { display: flex; align-items: center; gap: var(--spacing-12); padding: 0 var(--spacing-24) var(--spacing-16); }
 .ow-blockform .th-field { max-width: 320px; }
+.ow-blockform .th-field.ow-field-wide { max-width: 560px; }
 .ow-logs-block { padding: var(--spacing-24) var(--spacing-24) 0; }
 .ow-logs-block .th-grid-scroll { margin-inline: 0; }
 .ow-modal-text { margin: 0; color: var(--color-foreground-text); overflow-wrap: anywhere; }

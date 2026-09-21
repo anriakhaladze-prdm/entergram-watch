@@ -12,8 +12,8 @@ import * as kv from '../lib/state.js';
 import { fakeUpstash, fakeEntergram, fakeSlack } from './fakes.js';
 import { applyEvent, emptyEv, factsFromEvents, ingestEvents } from '../lib/events.js';
 import { parseFilters, matchRow, activeCount, filterLabel, queueHref } from '../components/filters.js';
-import { isMonitor, onDomain, describeUa, clientIp } from '../lib/access.js';
-import { emailBlocked, sessionRevoked, forget, __reset as resetGate } from '../lib/gate.js';
+import { isMonitor, onDomain, describeUa, clientIp, parseEmails } from '../lib/access.js';
+import { emailBlocked, emailAllowed, sessionRevoked, forget, __reset as resetGate } from '../lib/gate.js';
 import { buildAuthOptions } from '../lib/auth.js';
 
 const NEGATIVE_LABELS = new Set(['negative', 'at_risk']);
@@ -569,10 +569,17 @@ await t('the monitoring whitelist is the two named accounts, the domain admits t
   eq(describeUa('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36 Edg/128.0'), 'Edge on Windows');
   eq(clientIp({ 'x-forwarded-for': '1.2.3.4, 10.0.0.1' }), '1.2.3.4');
 });
-await t('a block or a revoke ends the session on the next read, and a monitor cannot be blocked from the store gate', async () => {
+await t('access is an allow-list: the whitelist is in, everyone else needs adding, a block or a revoke ends the session on the next read', async () => {
   useKv(); resetGate();
   const opts = buildAuthOptions({ ip: '1.2.3.4', device: 'Edge on Windows' });
   const token = { email: 'kyle@paradym.io', name: 'Kyle', sid: 'sid-1' };
+  eq(await opts.callbacks.signIn({ profile: { email: 'kyle@paradym.io', name: 'Kyle' } }), '/auth/denied?reason=access', 'on the domain but not on the list');
+  eq(await opts.callbacks.session({ session: { user: {} }, token }), null, 'an existing session of an unlisted address ends too');
+  eq(await opts.callbacks.signIn({ profile: { email: 'anri.akhaladze@paradym.io' } }), true, 'the whitelist is always in');
+  eq(parseEmails('Kyle@paradym.io, patrick@paradym.io\nkyle@paradym.io not-an-email').join(), 'kyle@paradym.io,patrick@paradym.io');
+  await kv.allowEmail('kyle@paradym.io', 'anri.akhaladze@paradym.io'); forget(null, 'kyle@paradym.io');
+  eq(await emailAllowed('kyle@paradym.io'), true);
+  eq(await opts.callbacks.signIn({ profile: { email: 'kyle@paradym.io', name: 'Kyle' } }), true);
   const s1 = await opts.callbacks.session({ session: { user: {} }, token });
   eq(s1.user.email, 'kyle@paradym.io'); eq(s1.monitor, false); eq(s1.sid, 'sid-1');
   const s2 = await opts.callbacks.session({ session: { user: {} }, token: { ...token, email: 'anri.akhaladze@paradym.io' } });
@@ -581,9 +588,8 @@ await t('a block or a revoke ends the session on the next read, and a monitor ca
   eq(await emailBlocked('kyle@paradym.io'), true);
   eq(await opts.callbacks.session({ session: { user: {} }, token }), null, 'blocked address reads as signed out');
   eq(await opts.callbacks.signIn({ profile: { email: 'kyle@paradym.io', name: 'Kyle' } }), '/auth/denied?reason=blocked');
-  eq(await opts.callbacks.signIn({ profile: { email: 'kyle@gmail.com' } }), '/auth/denied?reason=domain');
-  eq(await opts.callbacks.signIn({ profile: { email: 'colton@paradym.io' } }), true);
-  const log = await kv.getSignIns(); eq(log[0].denied, true); eq(log[0].email, 'kyle@paradym.io'); eq(log[0].ip, '1.2.3.4');
+  const log = await kv.getSignIns(); eq(log[0].denied, true); eq(log[0].reason, 'blocked'); eq(log[0].ip, '1.2.3.4');
+  eq(log[log.length - 1].reason, 'access', 'the first refusal was for not being on the list');
   await kv.unblockEmail('kyle@paradym.io'); forget(null, 'kyle@paradym.io');
   eq(await emailBlocked('kyle@paradym.io'), false);
   await kv.putSession({ sid: 'sid-1', email: 'kyle@paradym.io', createdAt: Date.now(), ip: '1.2.3.4', device: 'Edge on Windows' });
