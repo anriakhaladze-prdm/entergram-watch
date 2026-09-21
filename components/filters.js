@@ -37,19 +37,21 @@ export const replyBucket = (row) => {
 export const SETS = {
   all: { label: 'All', test: () => true },
   actionable: { label: 'Needs action', test: (r) => r.actionable },
-  hosted: { label: 'Hosted', test: (r) => !r.flags.left },
+  hosted: { label: 'Hosted', test: (r) => !r.flags.left && !r.flags.not_joined },
   contacted: { label: 'Contacted in 7d', test: (r) => r.flags.contacted7d },
-  no_contact_any: { label: 'No contact 7d+ (all)', test: (r) => r.flags.no_contact && !r.flags.left },
+  no_contact_any: { label: 'No contact 7d+ (all)', test: (r) => r.flags.no_contact && !r.flags.left && !r.flags.not_joined },
   events: { label: 'Timing from the event stream', test: (r) => r.history === 'events' },
   unread: { label: 'History not read', test: (r) => r.history !== 'read' },
   unavailable: { label: 'History not readable', test: (r) => r.history === 'unavailable' },
   alerted: { label: 'Alerted', test: (r) => Boolean(r.alerts?.no_contact && !r.alerts.no_contact.seeded) || Boolean(r.alerts?.urgent && !r.alerts.urgent.seeded) },
 };
 
-// The queue's tabs. Groups is every chat the player is still in; left ones
-// are kept out of it and out of every count on it.
+// The queue's tabs. Groups is every chat with a player in it; the ones nobody
+// ever joined and the ones the player left are kept out of it and out of
+// every count on it.
 export const TABS = [
-  { key: 'active', label: 'Groups', test: (r) => !r.flags.left, states: ['waiting', 'unhappy', 'no_contact', 'ignored', 'ok'] },
+  { key: 'active', label: 'Groups', test: (r) => !r.flags.left && !r.flags.not_joined, states: ['waiting', 'unhappy', 'no_contact', 'ignored', 'ok'] },
+  { key: 'not_joined', label: 'Not joined', test: (r) => r.flags.not_joined && !r.flags.left, states: [] },
   { key: 'left', label: 'Left group', test: (r) => r.flags.left, states: [] },
 ];
 export const TAB = Object.fromEntries(TABS.map((t) => [t.key, t]));

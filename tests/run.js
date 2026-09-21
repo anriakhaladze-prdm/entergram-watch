@@ -1,7 +1,7 @@
 // Regression tests for the rules that decide whether a human gets pinged, and
 // for the scan itself, run end to end against in-memory doubles.
 import { isPlayerChat, playerNameFromTitle, excludeReason, dedupeChats, chatMeta, isInScope, SCOPE_ACCOUNTS } from '../lib/scope.js';
-import { extractFacts, normalizeMessage, isAcknowledgement, departureTarget, departureIsPlayer } from '../lib/facts.js';
+import { extractFacts, normalizeMessage, isAcknowledgement, departureTarget, departureIsPlayer, joinTarget } from '../lib/facts.js';
 import { deriveRow, summarize } from '../lib/derive.js';
 import { dueAlerts, orderAlerts, formatAlert, prettyTier } from '../lib/alerts.js';
 import { identify, isStaffSender, ownerOfAccount, useLearnedStaff } from '../lib/team.js';
@@ -24,7 +24,7 @@ const ok = (v, m = '') => { if (!v) throw new Error(`${m} expected truthy, got $
 
 const NOW = Date.parse('2026-09-21T00:00:00Z');
 const ago = (days) => new Date(NOW - days * 86400000).toISOString();
-const COLTON = '8268223773', KYLE = '7973277038', PRIEST = '8120203444', SHARED = '8797108490', PLAYER = '1352398121';
+const COLTON = '8268223773', KYLE = '7973277038', PRIEST = '8120203444', SHARED = '8797108490', PLAYER = '1352398121', ANDY = '5278034304';
 
 const chat = (over = {}) => ({
   id: 'uuid-1', telegramId: '-5000000001', title: 'testplayer x Thrill.com', type: 'group', membersCount: 8,
@@ -144,6 +144,29 @@ await t('a former host is still staff, and an old chat of theirs is simply no co
   const f = factsOf([msg(400, '31337', { senderName: 'Byron Thrill' }), msg(401, PLAYER)]);
   eq(f.lastStaffBy, 'Byron Petzer'); eq(f.staffSpeakers[0].name, 'Byron Petzer');
   eq(derive(chat({ lastMessageDate: ago(400) }), f).state, 'no_contact');
+});
+await t('a group opened for a player who never arrived is not joined, not a quiet player', () => {
+  eq(joinTarget('Carter | Thrill VIP added you to this channel'), null, 'the reader being added is not the player arriving');
+  eq(joinTarget('sKo added TWIXA'), 'TWIXA'); eq(joinTarget('lopper joined the group'), 'lopper');
+  const svc = (days, type, text) => normalizeMessage({ id: Math.random(), date: ago(days), isOut: false, sender: { id: ANDY, name: 'Andy | Thrill' }, actionType: type, text });
+  const opened = [
+    msg(53, ANDY, { senderName: 'Andy | Thrill', text: 'Hey lopper - I have gone ahead and set up your 24/7 hosting group.' }),
+    svc(53, 'chatEditPhoto', 'Andy | Thrill updated group photo'),
+    svc(53, 'chatCreate', 'Andy | Thrill created the group "lopper x Thrill.com"'),
+  ];
+  const f = factsOf(opened, 'lopper');
+  eq(Boolean(f.createdAt), true); eq(f.playerSeen, false); eq(f.playerJoinedAt, null);
+  const r = derive(chat({ title: 'lopper x Thrill.com', lastMessageDate: ago(53), lastMessage: { date: ago(53), isOut: false, sender: { id: ANDY } } }), f);
+  eq(r.state, 'not_joined'); eq(r.flags.not_joined, true);
+  eq(r.signals[0], 'group opened 53d ago, the player never arrived');
+  eq(dueAlerts(r, {}, { now: NOW }).length, 0, 'nobody to chase');
+  // Once they arrive it is an ordinary chat again, silent or not.
+  const joined = factsOf([svc(40, 'chatAddUser', 'Andy | Thrill added lopper'), ...opened], 'lopper');
+  eq(derive(chat({ lastMessageDate: ago(40) }), joined).flags.not_joined, false, 'added, so they are here');
+  const spoke = factsOf([msg(2, PLAYER, { text: 'hey' }), ...opened], 'lopper');
+  eq(derive(chat({ lastMessageDate: ago(2) }), spoke).flags.not_joined, false);
+  // Without the creation message the history may be partial, so silence proves nothing.
+  eq(derive(chat({ lastMessageDate: ago(53) }), factsOf([opened[0]], 'lopper')).flags.not_joined, false, 'no creation seen, no claim made');
 });
 await t('acknowledgements close an exchange, questions and complaints do not', () => {
   eq(isAcknowledgement('thanks!'), true); eq(isAcknowledgement("I'd appreciate it. Thank you"), true); eq(isAcknowledgement('gg'), true);

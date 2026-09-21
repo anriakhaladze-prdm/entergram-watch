@@ -17,8 +17,10 @@ whatever the kind, and never two in a row for the same silence. Alerts name
 the player and the chat, not a host: no chat has one.
 
 Everything else lives on the dashboard: players waiting on a reply, players not
-answering our outreach, players who left. A negative mood older than seven
-days (`UNHAPPY_MAX_AGE_DAYS`) no longer marks a player unhappy.
+answering our outreach, players who left, and groups the player never joined.
+A negative mood older than seven days (`UNHAPPY_MAX_AGE_DAYS`) no longer marks
+a player unhappy. Neither a left group nor one the player never joined ever
+alerts: there is nobody in it to chase.
 
 Posting is paced at one message a second, honours `Retry-After`, and is capped
 per run (`MAX_ALERTS_PER_RUN`, default 15) with one overflow line pointing at
@@ -36,8 +38,8 @@ queue. The distribution of days since we last spoke, mood, state, reply-time
 distribution and a daily trend of the three actionable counts, one small chart
 each on its own scale.
 
-**Queue.** Two tabs: Groups (every chat the player is still in) and Left
-group. The
+**Queue.** Three tabs: Groups (a chat with a player in it), Not joined (the
+group was opened and the player never arrived) and Left group. The
 Filters control opens one menu with every group (state, mood, days since we
 spoke, reply time, history source, tier, alerted), each choice carrying its
 count; any number of choices can be ticked, values within a group combine
@@ -110,8 +112,12 @@ the staff who have replied in a chat and how often, and nothing claims an
 owner.
 
 **Facts and state.** A history read establishes facts (last player message,
-last staff message, whether the player closed the exchange, whether the player
-left, reply times) and those are persisted per chat. The state a chat is
+last staff message, whether the player closed the exchange, whether the group
+was opened and whether the player ever arrived or left, reply times) and those
+are persisted per chat. A player who has never been in the group is told apart
+from a quiet one by the creation message: seeing the group being opened means
+the history is complete, so silence since then is proof rather than a guess
+about messages the reader account cannot see. The state a chat is
 in is derived from facts and the clock on every tick, so it never flips between
 runs and never needs a re-read to update.
 

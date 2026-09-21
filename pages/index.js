@@ -12,7 +12,7 @@ export default function Overview() {
   useEffect(() => { if (snap) fetch('/api/history').then((r) => (r.ok ? r.json() : null)).then(setHistory).catch(() => {}); }, [snap?.generatedAt]);
 
   const m = useMemo(() => {
-    const hosted = rows.filter((r) => !r.flags.left);
+    const hosted = rows.filter((r) => !r.flags.left && !r.flags.not_joined);
     const silence = SILENCE_BUCKETS.map((b) => ({ ...b, value: hosted.filter((r) => silenceBucket(r) === b.key).length, href: queueHref({ f: 'all', silence: b.key }) }));
     const reply = REPLY_BUCKETS.map((b) => ({ ...b, value: hosted.filter((r) => replyBucket(r) === b.key).length, href: queueHref({ f: 'all', reply: b.key }) }));
     const moods = MOODS.map((k) => ({ key: k.key, label: k.label, tone: k.tone, value: hosted.filter((r) => (r.sentiment?.label || 'neutral') === k.key).length, href: queueHref({ f: 'all', mood: k.key }) }));
@@ -28,7 +28,7 @@ export default function Overview() {
   }
 
   const tiles = [
-    { key: 'hosted', label: 'Groups', value: summary.active, sub: summary.left ? `${summary.left} left` : null, href: queueHref({ tab: 'active' }) },
+    { key: 'hosted', label: 'Groups', value: summary.active, sub: [summary.notJoined ? `${summary.notJoined} not joined` : null, summary.left ? `${summary.left} left` : null].filter(Boolean).join(' · ') || null, href: queueHref({ tab: 'active' }) },
     { key: 'cov', label: 'Contacted in last 7 days', value: pct(summary.contacted7d, summary.contactKnown), tone: 'green', sub: `${summary.contacted7d} of ${summary.contactKnown}`, href: queueHref({ f: 'contacted' }) },
     { key: 'nc', label: 'No contact 7d+', value: summary.noContact7d, tone: summary.noContact7d ? 'yellow' : 'green', sub: summary.noContact7d ? `${pct(summary.noContact7d, summary.active)} of active` : null, href: queueHref({ f: 'no_contact' }) },
     { key: 'wait', label: 'Waiting on a reply', value: summary.waiting, tone: summary.waiting ? 'orange' : 'green', sub: summary.waiting ? `longest ${age(summary.waitingOldestDays)}` : null, href: queueHref({ f: 'waiting' }) },
@@ -46,7 +46,7 @@ export default function Overview() {
           <BarList title="Mood" sub={m.scored ? `${m.scored} scored` : null} rows={m.moods} />
         </div>
         <div className="ow-charts">
-          <BarList title="State" rows={STATES.map((st) => ({ key: st.key, label: st.label, value: summary.counts[st.key] || 0, tone: st.tone, href: queueHref(st.key === 'left' ? { tab: 'left' } : { f: st.key }) }))} />
+          <BarList title="State" rows={STATES.map((st) => ({ key: st.key, label: st.label, value: summary.counts[st.key] || 0, tone: st.tone, href: queueHref(st.key === 'left' ? { tab: 'left' } : st.key === 'not_joined' ? { tab: 'not_joined' } : { f: st.key }) }))} />
           {summary.replyMeasured ? <Histogram title="Time to first reply" sub={`median ${mins(summary.replyMedianMins)} · p90 ${mins(summary.replyP90Mins)}`} buckets={m.reply} tone="green" /> : null}
         </div>
 
