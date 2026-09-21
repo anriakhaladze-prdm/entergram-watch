@@ -14,9 +14,9 @@ export default function Overview() {
 
   const m = useMemo(() => {
     const hosted = rows.filter((r) => !r.flags.left && !r.flags.barred);
-    const silence = SILENCE_BUCKETS.map((b) => ({ ...b, value: hosted.filter((r) => silenceBucket(r) === b.key).length, href: queueHref({ f: 'hosted', silence: b.key }) }));
-    const reply = REPLY_BUCKETS.map((b) => ({ ...b, value: hosted.filter((r) => replyBucket(r) === b.key).length, href: queueHref({ f: 'hosted', reply: b.key }) }));
-    const moods = MOODS.map((k) => ({ key: k.key, label: k.label, tone: k.tone, value: hosted.filter((r) => (r.sentiment?.label || 'neutral') === k.key).length, href: queueHref({ f: 'hosted', mood: k.key }) }));
+    const silence = SILENCE_BUCKETS.map((b) => ({ ...b, value: hosted.filter((r) => silenceBucket(r) === b.key).length, href: queueHref({ f: 'all', silence: b.key }) }));
+    const reply = REPLY_BUCKETS.map((b) => ({ ...b, value: hosted.filter((r) => replyBucket(r) === b.key).length, href: queueHref({ f: 'all', reply: b.key }) }));
+    const moods = MOODS.map((k) => ({ key: k.key, label: k.label, tone: k.tone, value: hosted.filter((r) => (r.sentiment?.label || 'neutral') === k.key).length, href: queueHref({ f: 'all', mood: k.key }) }));
     const scored = hosted.filter((r) => r.sentiment).length;
     return { hosted, silence, reply, moods, scored };
   }, [rows]);
@@ -48,8 +48,8 @@ export default function Overview() {
           </span>
           <span className="ow-strip-sub typ-label-small">
             {summary.historyRead} chats with readable history
-            {summary.historyEvents ? <>, <Link className="th-link" href={queueHref({ f: 'events' })}>{summary.historyEvents} from the event stream</Link></> : null}
-            {summary.historyUnavailable ? <>, <Link className="th-link" href={queueHref({ f: 'unavailable' })}>{summary.historyUnavailable} timing only</Link></> : null}
+            {summary.historyEvents ? <>, <Link className="th-link" href={queueHref({ f: 'all', history: 'events' })}>{summary.historyEvents} from the event stream</Link></> : null}
+            {summary.historyUnavailable ? <>, <Link className="th-link" href={queueHref({ f: 'all', history: 'unavailable' })}>{summary.historyUnavailable} timing only</Link></> : null}
             {summary.historyPending ? `, ${summary.historyPending} queued` : ''}
             {' · '}<Link className="th-link" href="/activity">activity</Link>
           </span>
@@ -62,7 +62,7 @@ export default function Overview() {
           <span className="ow-section-sub typ-label-small">{summary.active} active players</span>
         </div>
         <div className="ow-charts">
-          <Histogram title="Days since we last spoke" sub="hosted players" buckets={m.silence} tone="yellow" />
+          <Histogram title="Days since we last spoke" sub="active players" buckets={m.silence} tone="yellow" />
           <BarList title="Mood" sub={m.scored ? `${m.scored} scored` : 'nothing scored yet'} rows={m.moods} />
         </div>
         <div className="ow-charts">

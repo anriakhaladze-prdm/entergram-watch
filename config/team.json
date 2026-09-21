@@ -1,5 +1,5 @@
 {
-  "note": "The single source of truth for who is staff. Identity runs on the Telegram sender of each message, not on the connected account a chat is filed under, because @Thrill_VIP_Ops is one shared Telegram account that most of the team posts from. A sender resolves by telegramUserIds first, then by an exact senderName, then by the '<name> | Thrill' naming convention. Nobody owns a chat, so hosting flags carry no meaning beyond documentation.",
+  "note": "The single source of truth for who is staff. Identity runs on the Telegram sender of each message, not on the connected account a chat is filed under, because @Thrill_VIP_Ops is one shared Telegram account that most of the team posts from. A sender resolves by telegramUserIds first, then by an exact senderName, then by the '<name> | Thrill' naming convention. thirdParties are senders who sit in many player groups without being staff or the player; they are neither side. Nobody owns a chat, so hosting flags carry no meaning beyond documentation.",
   "readerAccountId": "cmu72hqn44wrcod011qefw9lh",
   "readerNote": "@Thrill_VIP_Ops as connected under the API key's user. Message history is only readable for groups this Telegram account is a member of. Adding it to a group makes that group readable on the next scan.",
   "sharedAccounts": [
@@ -7,6 +7,9 @@
   ],
   "bots": [
     { "telegramUserId": "777000", "name": "Telegram service" }
+  ],
+  "thirdParties": [
+    { "telegramUserId": "7025314348", "name": "Miguel - Zee VIP", "note": "Not staff and not a player. Present in many player groups, so the learned-staff rule would otherwise claim him. His messages count for neither side." }
   ],
   "members": [
     {

@@ -51,23 +51,41 @@ export const SETS = {
 export const TABS = [
   { key: 'active', label: 'Active', test: (r) => !r.flags.barred && !r.flags.left, states: ['waiting', 'unhappy', 'no_contact', 'ignored', 'ok'] },
   { key: 'barred', label: 'Time-barred', test: (r) => r.flags.barred && !r.flags.left, states: [] },
-  { key: 'left', label: 'Left', test: (r) => r.flags.left, states: [] },
+  { key: 'left', label: 'Left group', test: (r) => r.flags.left, states: [] },
 ];
 export const TAB = Object.fromEntries(TABS.map((t) => [t.key, t]));
 export const tabOf = (row) => TABS.find((t) => t.test(row))?.key || 'active';
 
+// How a chat's timing was established, as the filter names it.
+export const HISTORY = [
+  { key: 'read', label: 'Readable' },
+  { key: 'events', label: 'Event stream' },
+  { key: 'unavailable', label: 'Last message only' },
+  { key: 'pending', label: 'Queued' },
+];
+
+// Each group is a list. Within a group any checked value matches; across
+// groups every group has to match. Empty means the group is not filtering.
+export const GROUPS = ['mood', 'silence', 'reply', 'history', 'tier'];
+
 export function parseFilters(query = {}) {
-  const list = (v) => (v == null || v === '' ? [] : String(v).split(',').filter(Boolean));
+  const list = (v) => (v == null || v === '' ? [] : [...new Set(String(v).split(',').filter(Boolean))]);
   return {
     tab: TAB[query.tab] ? String(query.tab) : null,
     f: list(query.f),
-    mood: query.mood ? String(query.mood) : null,
-    silence: query.silence ? String(query.silence) : null,
-    reply: query.reply ? String(query.reply) : null,
+    mood: list(query.mood),
+    silence: list(query.silence),
+    reply: list(query.reply),
+    history: list(query.history),
+    tier: list(query.tier),
+    alerted: query.alerted === '1' ? true : null,
     q: query.q ? String(query.q) : '',
     chat: query.chat ? String(query.chat) : null,
   };
 }
+
+export const moodOf = (row) => row.sentiment?.label || 'neutral';
+export const tierOf = (row) => row.tier || 'none';
 
 export function matchRow(row, fl) {
   if (fl.tab && !TAB[fl.tab].test(row)) return false;
@@ -75,9 +93,12 @@ export function matchRow(row, fl) {
     const hit = fl.f.some((k) => (SETS[k] ? SETS[k].test(row) : STATE[k] ? row.state === k : false));
     if (!hit) return false;
   }
-  if (fl.mood && (row.sentiment?.label || 'neutral') !== fl.mood) return false;
-  if (fl.silence && silenceBucket(row) !== fl.silence) return false;
-  if (fl.reply && replyBucket(row) !== fl.reply) return false;
+  if (fl.mood.length && !fl.mood.includes(moodOf(row))) return false;
+  if (fl.silence.length && !fl.silence.includes(silenceBucket(row))) return false;
+  if (fl.reply.length && !fl.reply.includes(replyBucket(row))) return false;
+  if (fl.history.length && !fl.history.includes(row.history)) return false;
+  if (fl.tier.length && !fl.tier.includes(tierOf(row))) return false;
+  if (fl.alerted && !SETS.alerted.test(row)) return false;
   if (fl.q) {
     const t = fl.q.trim().toLowerCase();
     if (t && !(row.player || '').toLowerCase().includes(t) && !(row.title || '').toLowerCase().includes(t) && !(row.playerUsername || '').toLowerCase().includes(t) && !String(row.chatId).includes(t)) return false;
@@ -85,12 +106,19 @@ export function matchRow(row, fl) {
   return true;
 }
 
+// How many choices are ticked. The "all" sentinel on f is the absence of a
+// state filter, so it does not count.
+export const activeCount = (fl, f = fl.f) => f.filter((k) => k !== 'all').length + GROUPS.reduce((n, g) => n + fl[g].length, 0) + (fl.alerted ? 1 : 0);
+
 export function filterLabel(fl) {
   const parts = [];
-  for (const k of fl.f) parts.push(SETS[k]?.label || STATE[k]?.label || k);
-  if (fl.mood) parts.push(`mood ${fl.mood.replace('_', ' ')}`);
-  if (fl.silence) parts.push(`we last spoke ${SILENCE_BUCKETS.find((b) => b.key === fl.silence)?.label || fl.silence}`);
-  if (fl.reply) parts.push(`first reply ${REPLY_BUCKETS.find((b) => b.key === fl.reply)?.label || fl.reply}`);
+  for (const k of fl.f) if (k !== 'all') parts.push(SETS[k]?.label || STATE[k]?.label || k);
+  if (fl.mood.length) parts.push(`mood ${fl.mood.map((m) => m.replace('_', ' ')).join('/')}`);
+  if (fl.silence.length) parts.push(`we last spoke ${fl.silence.map((s) => SILENCE_BUCKETS.find((b) => b.key === s)?.label || s).join('/')}`);
+  if (fl.reply.length) parts.push(`first reply ${fl.reply.map((r) => REPLY_BUCKETS.find((b) => b.key === r)?.label || r).join('/')}`);
+  if (fl.history.length) parts.push(`history ${fl.history.map((h) => HISTORY.find((x) => x.key === h)?.label.toLowerCase() || h).join('/')}`);
+  if (fl.tier.length) parts.push(`tier ${fl.tier.map((t) => t.replace(/_/g, ' ')).join('/')}`);
+  if (fl.alerted) parts.push('alerted');
   return parts.join(' · ');
 }
 

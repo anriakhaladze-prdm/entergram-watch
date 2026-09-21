@@ -2,36 +2,10 @@
    Player outreach - only what this tool adds on top of the design system.
 
    Everything here is a token or on the scale. Where the system has no recipe
-   (a search field, a count on a rail item, a mood cell) the nearest archetype
-   is derived rather than invented: the search field is the 34px pill control
-   from §13.1, the rail count reuses the nav label's geometry, the mood cell is
-   badge text without the badge.
+   (a count on a rail item, a mood cell) the nearest archetype is derived
+   rather than invented: the rail count reuses the nav label's geometry, the
+   mood cell is badge text without the badge.
    ========================================================================== */
-
-/* Search: archetype 1, the 34px pill, with a text input inside it. */
-.ow-search {
-  display: flex;
-  height: 34px;
-  align-items: center;
-  gap: var(--spacing-8);
-  border-radius: var(--radius-24);
-  background: var(--color-control-secondary);
-  padding: 0 var(--spacing-16);
-  transition: background var(--dur-house) var(--ease-in-out);
-}
-.ow-search:focus-within { background: var(--color-control-secondary-active); }
-.ow-search svg { flex-shrink: 0; color: var(--color-foreground-muted-2); }
-.ow-search input {
-  width: 180px;
-  border: none;
-  background: none;
-  color: var(--color-foreground-text);
-  font-family: var(--font-oxanium);
-  font-size: 13px;
-  font-weight: 600;
-  outline: none;
-}
-.ow-search input::placeholder { color: var(--color-foreground-muted-3); font-weight: 500; }
 
 /* The count on a rail item. The rail is the filter here, so each section
    carries how many rows it holds; without the number the rail is three
@@ -184,10 +158,9 @@
 /* One left edge. The card scroller and the grid scroller both carried 24px,
    so a table sat 24px further in than the toolbar and the tiles above it. The
    card's children set the edge themselves: pages through .ow-page, grids
-   through their own margin, the host bar through its padding. */
+   through their own margin. */
 .th-card-scroll { padding-inline: 0; }
 .ow-page .th-grid-scroll { margin-inline: 0; }
-.ow-hostbar { display: flex; flex-wrap: wrap; gap: var(--spacing-6); padding: 0 var(--spacing-24) var(--spacing-12); }
 
 .ow-inline-badge { margin-left: var(--spacing-8); }
 .ow-over { margin-left: var(--spacing-8); color: var(--color-badge-red); font-weight: 700; font-size: 11px; text-transform: uppercase; }
@@ -221,7 +194,6 @@
 .ow-grid-inline { padding-top: var(--spacing-8); }
 .ow-grid-inline .th-grid-scroll { max-height: none; }
 .ow-chip-strong[data-on='true'] { font-weight: 800; }
-.ow-chip-filter { display: inline-flex; align-items: center; gap: var(--spacing-6); }
 .ow-chip-muted { opacity: .6; }
 
 /* ---- the player drawer ---------------------------------------------------- */
@@ -243,20 +215,21 @@
 .ow-msg { max-width: 88%; padding: var(--spacing-10) var(--spacing-14); border-radius: var(--radius-16); background: var(--color-surface-2, var(--color-control-secondary)); }
 .ow-msg-staff { align-self: flex-end; background: color-mix(in oklab, var(--color-green-1) 8%, var(--color-surface-2, transparent)); }
 .ow-msg-player { align-self: flex-start; }
+.ow-msg-other { align-self: flex-start; background: transparent; border: 0.5px solid var(--color-filter-border); }
 .ow-msg-system { align-self: center; max-width: 100%; background: transparent; padding: var(--spacing-4) 0; }
 .ow-msg-meta { color: var(--color-foreground-muted-3); padding-bottom: var(--spacing-4); }
 .ow-msg-text { color: var(--color-foreground-text); white-space: pre-wrap; overflow-wrap: anywhere; }
 .ow-msg-system .ow-msg-text { color: var(--color-foreground-muted-3); text-align: center; }
 
-/* ---- prose blocks on the hosts page --------------------------------------- */
-.ow-notes { color: var(--color-foreground-muted-1); max-width: 900px; }
-.ow-notes p { margin: 0 0 var(--spacing-10); }
-.ow-notes ul { margin: 0 0 var(--spacing-10); padding-left: var(--spacing-20); }
-.ow-notes code { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--color-foreground-text); }
-.ow-notes .th-link { cursor: pointer; }
-
 /* ---- queue tabs: the worklist, the time-barred, the gone ------------------ */
-.ow-tabs { padding: 0; margin-left: calc(-1 * var(--spacing-12)); }
-.ow-toolbar-note { margin-left: 0; }
+.ow-tabs { flex: 0 0 auto; padding: 0; margin-left: calc(-1 * var(--spacing-12)); }
 .ow-tabs .th-pill { border: none; cursor: pointer; }
 .ow-tabs .th-pill .ow-nums { font-weight: 600; opacity: .7; margin-left: 2px; }
+
+/* First column: header and cells on the same 14px inset as every other column.
+   The system gives the sticky header cell 24px outside and 24px inside, which
+   put the PLAYER label 30px right of the names under it. */
+.th-grid-headrow > .th-grid-headcell:first-child { padding-left: 0; }
+.th-grid-row > .th-grid-cell:first-child .th-grid-cell-inner,
+.th-grid-headrow > .th-grid-headcell:first-child > div { padding-left: var(--spacing-14); }
+

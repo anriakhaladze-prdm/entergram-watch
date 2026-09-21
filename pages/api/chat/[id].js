@@ -3,7 +3,7 @@
 // account belongs to can be read; anything else answers unavailable.
 import { createClient } from '../../../lib/entergram.js';
 import { normalizeMessage } from '../../../lib/facts.js';
-import { READER_ACCOUNT_ID, isStaffSender, staffLabel, isBot } from '../../../lib/team.js';
+import { READER_ACCOUNT_ID, isStaffSender, staffLabel, isBot, isThirdParty, thirdPartyName } from '../../../lib/team.js';
 import { requireSession } from '../../../lib/auth.js';
 
 export default async function handler(req, res) {
@@ -19,8 +19,8 @@ export default async function handler(req, res) {
       .sort((a, b) => new Date(a.date) - new Date(b.date))
       .map((m) => ({
         id: m.id, date: m.date,
-        side: m.actionType ? 'system' : (m.isOut || isStaffSender(m.senderId, m.senderName)) ? 'staff' : isBot(m.senderId) ? 'system' : 'player',
-        name: m.actionType ? null : (m.isOut || isStaffSender(m.senderId, m.senderName)) ? staffLabel(m.senderId, m.senderName) : (m.senderName || 'player'),
+        side: m.actionType ? 'system' : (m.isOut || isStaffSender(m.senderId, m.senderName)) ? 'staff' : isBot(m.senderId) ? 'system' : isThirdParty(m.senderId) ? 'other' : 'player',
+        name: m.actionType ? null : (m.isOut || isStaffSender(m.senderId, m.senderName)) ? staffLabel(m.senderId, m.senderName) : isThirdParty(m.senderId) ? (thirdPartyName(m.senderId) || m.senderName) : (m.senderName || 'player'),
         text: m.actionType ? (m.text || m.actionType) : m.text.slice(0, 400),
       }));
     res.setHeader('cache-control', 'private, no-store');

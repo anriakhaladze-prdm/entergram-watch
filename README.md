@@ -1,6 +1,6 @@
 # Entergram Watch
 
-Watches every hosted player chat in the Entergram workspace, posts one Slack
+Watches every player chat in the Entergram workspace, posts one Slack
 alert per player when they have had nothing from us for seven days, and serves
 a dashboard of outreach coverage, response times and player sentiment. Runs as
 a Vercel cron every five minutes.
@@ -9,13 +9,18 @@ a Vercel cron every five minutes.
 
 | Alert | When | Repeats |
 |---|---|---|
-| 7 days without contact | A hosted player crosses seven days without a message from any staff member | Once per silence. Re-armed only after we speak to the player again |
-| Churn signal | A player's own messages read as at risk (unresolved withdrawal, scam accusation, naming a rival, saying goodbye) and nobody has answered yet | Once, then again only for a newer message at least a week later. `URGENT_ALERTS=off` disables it |
+| 7 days without contact | A player crosses seven days without a message from any staff member, and crossed it within the last two days (`ALERT_MAX_LATE_DAYS`) | Once per silence. Re-armed only after we speak to the player again |
+| Churn signal | A player's own message from the last 24 hours (`URGENT_MAX_AGE_HOURS`) reads as at risk (unresolved withdrawal, scam accusation, naming a rival, saying goodbye) and nobody has answered yet | Once, then again only for a newer message at least a week later. `URGENT_ALERTS=off` disables it |
+
+A conversation gets at most one alert per 24 hours (`ALERT_COOLDOWN_HOURS`),
+whatever the kind, and never two in a row for the same silence. Alerts name
+the player and the chat, not a host: no chat has one.
 
 Everything else lives on the dashboard: players waiting on a reply, players not
 answering our outreach, players who left. A chat with no message either way
 for 20 days is time-barred: out of the worklist, off the alerts, in its own
-tab.
+tab. A negative mood older than seven days (`UNHAPPY_MAX_AGE_DAYS`) no longer
+marks a player unhappy.
 
 Posting is paced at one message a second, honours `Retry-After`, and is capped
 per run (`MAX_ALERTS_PER_RUN`, default 15) with one overflow line pointing at
@@ -32,9 +37,13 @@ median and p90 time to first reply. Every figure opens the matching set in the
 queue. The distribution of days since we last spoke, mood, state, reply-time
 distribution and a daily trend.
 
-**Queue.** Three tabs: Active (the worklist), Time-barred, Left. Filters are
-URL parameters, so any view is a link: `/queue?f=no_contact`,
-`/queue?mood=at_risk`, `/queue?tab=barred`, `/queue?chat=<telegram id>`.
+**Queue.** Three tabs: Active (the worklist), Time-barred, Left group. The
+Filters control opens one menu with every group (state, mood, days since we
+spoke, reply time, history source, tier, alerted), each choice carrying its
+count; any number of choices can be ticked, values within a group combine
+with or, groups with and. Filters are URL parameters, so any view is a link:
+`/queue?f=no_contact`, `/queue?mood=at_risk,negative`, `/queue?tab=barred`,
+`/queue?chat=<telegram id>`. The Active tab opens on Needs action.
 Clicking a row opens the player: when each side last spoke and who replied,
 reply times, sentiment with the quote it was read from, alerts sent, and the
 recent conversation read live from Entergram (never stored). Entergram has no
@@ -57,7 +66,10 @@ cannot tell staff from player. Every sender resolves against
 `config/team.json` by Telegram user id, then exact display name, then the
 "<name> | Thrill" convention. The shared @Thrill_VIP_Ops account is staff but
 nobody in particular. A sender seen across six or more separate player groups
-is treated as staff and listed on the Hosts page until added to the table.
+is treated as staff and listed on the Activity page until added to the table.
+A sender who sits in many player groups without being staff or the player (an
+outside VIP agent) goes under `thirdParties`: their messages count for neither
+side and they are not tallied.
 
 **No host.** Nobody owns a chat: whoever is on shift answers. The drawer lists
 the staff who have replied in a chat and how often, and nothing claims an
@@ -65,7 +77,7 @@ owner.
 
 **Facts and state.** A history read establishes facts (last player message,
 last staff message, whether the player closed the exchange, whether the player
-left, host, reply times) and those are persisted per chat. The state a chat is
+left, reply times) and those are persisted per chat. The state a chat is
 in is derived from facts and the clock on every tick, so it never flips between
 runs and never needs a re-read to update.
 
@@ -165,6 +177,10 @@ keys; keys from the previous version expire on their own.
 | `TIME_BARRED_DAYS` | Default 20 |
 | `EVENTS_PAGES_PER_TICK` / `EVENTS_BACKFILL_DAYS` | Event stream pages per tick and how far the first run backfills, default 25 / 10 |
 | `URGENT_ALERTS` | `on` (default) or `off` |
+| `ALERT_COOLDOWN_HOURS` | One alert per conversation per this many hours, default 24 |
+| `ALERT_MAX_LATE_DAYS` | A silence posts only if it crossed seven days within this many days, default 2 |
+| `URGENT_MAX_AGE_HOURS` | A churn signal posts only for a player message this recent, default 24 |
+| `UNHAPPY_MAX_AGE_DAYS` | A negative mood counts as unhappy for this many days, default 7 |
 | `MAX_ALERTS_PER_RUN` | Default 15 |
 | `OUTAGE_ALERT_AFTER_FAILURES` | Default 3 |
 | `FULL_SWEEP_MINUTES` | Default 60 |

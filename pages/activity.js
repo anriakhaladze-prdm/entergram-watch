@@ -68,7 +68,7 @@ export default function Activity() {
             </div></div>
             <div className="th-grid-body">
               {alerts.map((a, i) => (
-                <div className="th-grid-row is-link" key={`${a.at}-${i}`} onClick={() => router.push(queueHref({ f: 'hosted', chat: a.chatId }))} role="link" tabIndex={0}>
+                <div className="th-grid-row is-link" key={`${a.at}-${i}`} onClick={() => router.push(queueHref({ f: 'all', chat: a.chatId }))} role="link" tabIndex={0}>
                   {cell(when(a.at), 'ow-sub')}
                   {cell(ALERT_KINDS[a.kind]?.label || a.kind)}
                   {cell(a.player, 'ow-clip')}

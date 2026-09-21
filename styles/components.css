@@ -1667,7 +1667,49 @@ button.th-blockhead { cursor: pointer; }
    absolute-on-body the two coordinate systems only agreed while the
    document scroll offset was 0. */
 .th-popover { position: fixed; z-index: 80; }
-.th-menu { display: flex; flex-direction: column; gap: var(--spacing-4); padding-block: var(--spacing-12); min-width: 220px; max-width: 340px; }
+/* A menu whose list is longer than the viewport - the signups email-domain
+   filter runs to hundreds of entries - has to scroll inside its own box. The
+   .th-surface above clips, and the body behind it does not scroll, so without
+   this the tail of the list is simply unreachable. menu() sets the exact
+   max-height from the space it measured; the vh here is the fallback.
+   overscroll-behavior stops a wheel at either end from chaining out to the
+   pane behind, which the menu's scroll-to-dismiss would read as "the page
+   moved" and close it. */
+.th-menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  padding-block: var(--spacing-12);
+  min-width: 220px;
+  max-width: 340px;
+  max-height: 60vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+/* Find box for a long menu. Sits above .th-menu, outside the scroll area, so
+   it stays put while the results move. */
+.th-menu-search {
+  padding: var(--spacing-12) var(--spacing-12) var(--spacing-4);
+}
+.th-menu-search .th-field {
+  height: 32px;
+}
+.th-menu-search-input {
+  min-width: 0;
+  width: 100%;
+  border: none;
+  background: none;
+  outline: none;
+  color: var(--color-foreground-primary);
+  font: inherit;
+  font-weight: 600;
+}
+.th-menu-empty {
+  margin-inline: var(--spacing-12);
+  padding: var(--spacing-10) var(--spacing-12);
+  color: var(--color-foreground-muted-1);
+}
 .th-menu-item {
   display: flex;
   align-items: center;

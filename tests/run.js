@@ -11,6 +11,7 @@ import { runScan, updateTally, learnedStaff } from '../lib/scan.js';
 import * as kv from '../lib/state.js';
 import { fakeUpstash, fakeEntergram, fakeSlack } from './fakes.js';
 import { applyEvent, emptyEv, factsFromEvents, ingestEvents } from '../lib/events.js';
+import { parseFilters, matchRow, activeCount, filterLabel, queueHref } from '../components/filters.js';
 
 const NEGATIVE_LABELS = new Set(['negative', 'at_risk']);
 let pass = 0, fail = 0;
@@ -82,6 +83,22 @@ await t('tally learns staff from spread across groups, never a player from one g
   eq(learned.has('555'), true);
   eq(learned.has('9000'), false);
   eq(learned.has(COLTON), false, 'known members are not tallied');
+});
+await t('a listed third party is neither side: not learned as staff, not the player, not a turn', () => {
+  const MIGUEL = '7025314348';
+  useLearnedStaff(new Map([[MIGUEL, 'Miguel - Zee VIP']]));
+  eq(isStaffSender(MIGUEL, 'Miguel - Zee VIP'), false, 'the learned tally cannot claim him');
+  useLearnedStaff(new Map());
+  const tally = {};
+  for (let i = 0; i < 7; i++) updateTally(tally, `-${i}`, [msg(1, MIGUEL, { senderName: 'Miguel - Zee VIP' })]);
+  eq(learnedStaff(tally).has(MIGUEL), false); eq(Object.keys(tally).length, 0, 'not tallied at all');
+  const f = factsOf([msg(0.5, MIGUEL, { senderName: 'Miguel - Zee VIP', text: 'my withdrawal is stuck' }), msg(2, COLTON), msg(3, PLAYER)]);
+  eq(f.lastPlayerAt, ago(3), 'his message is not the player speaking'); eq(f.lastStaffAt, ago(2), 'nor us');
+  const row = derive(chat({ lastMessageDate: ago(0.5), lastMessage: { date: ago(0.5), isOut: false, sender: { id: MIGUEL } } }), f);
+  eq(row.spokeLast, 'staff', 'a newer list entry from him attributes to nobody');
+  const ev = emptyEv();
+  eq(applyEvent(ev, { chatId: '-1', occurredAt: ago(1), senderId: MIGUEL, senderName: 'Miguel - Zee VIP', isOut: false }), false);
+  eq(ev.turns.length, 0);
 });
 
 // --- facts -----------------------------------------------------------------
@@ -184,6 +201,22 @@ await t('no_contact fires once per silence and re-arms only after we speak', () 
   eq(dueAlerts(r, { no_contact: { at: ago(9) } }, { now: NOW }).length, 1, 'we spoke after the last alert, new silence');
   const unread = derive(chat({ lastMessageDate: ago(2) }), null);
   eq(dueAlerts(unread, { no_contact: { at: ago(1), seeded: true } }, { now: NOW }).length, 0, 'unknown silence never fires off a seed');
+});
+await t('a silence first seen well past the line is dashboard-only, and one conversation posts at most once a day', () => {
+  const late = derive(chat({ lastMessageDate: ago(15) }), factsOf([msg(15, COLTON), msg(16, PLAYER)]));
+  eq(dueAlerts(late, {}, { now: NOW }).length, 0, 'crossed eight days ago');
+  const fresh = derive(chat({ lastMessageDate: ago(7.5) }), factsOf([msg(7.5, COLTON), msg(8, PLAYER)]));
+  eq(dueAlerts(fresh, {}, { now: NOW }).length, 1);
+  eq(dueAlerts(fresh, { urgent: { at: ago(0.3) } }, { now: NOW }).length, 0, 'an alert of another kind seven hours ago blocks it');
+  eq(dueAlerts(fresh, { urgent: { at: ago(1.2) } }, { now: NOW }).length, 1, 'a day later it may post');
+  const oldSignal = derive(chat({ lastMessageDate: ago(3) }), factsOf([msg(3, PLAYER), msg(3.5, COLTON)]), { sentiment: { label: 'at_risk', lastPlayerAt: ago(3) } });
+  eq(dueAlerts(oldSignal, {}, { now: NOW }).length, 0, 'a churn signal from three days ago is history');
+});
+await t('unhappy needs a recent player message behind it', () => {
+  const stale = derive(chat({ lastMessageDate: ago(12) }), factsOf([msg(12, PLAYER), msg(13, COLTON)]), { sentiment: { label: 'negative', lastPlayerAt: ago(12) } });
+  eq(stale.flags.unhappy, false); eq(stale.state, 'waiting');
+  const current = derive(chat({ lastMessageDate: ago(1) }), factsOf([msg(1, PLAYER), msg(1.1, COLTON)]), { sentiment: { label: 'negative', lastPlayerAt: ago(1) } });
+  eq(current.flags.unhappy, true);
 });
 await t('no alert for time-barred, left or unhosted chats', () => {
   eq(dueAlerts(derive(chat({ lastMessageDate: ago(25) }), factsOf([msg(25, COLTON), msg(26, PLAYER)])), {}, { now: NOW }).length, 0);
@@ -350,7 +383,7 @@ await t('first run seeds the backlog silently, builds the book once per group, a
   const r = await runScan({ api, now: NOW, log: () => {}, post: slack.post, alertGapMs: 0 });
   eq(r.ok, true); eq(r.mode, 'full');
   eq(r.summary.total, 7, 'seven distinct player chats, affiliate room and duplicate excluded');
-  eq(r.summary.noContact7d, 3); eq(r.posted, 0); eq(r.due, 3);
+  eq(r.summary.noContact7d, 3); eq(r.posted, 0); eq(r.due, 0, 'ten days in is late news, dashboard only');
   eq(slack.posts.length, 1); ok(slack.posts[0].includes('restarted'), slack.posts[0]);
   const meta = up.get('ew2:meta'); ok(meta.seededAt, 'seeded'); ok(meta.lastFullAt);
   const book = await kv.getBook(); eq(book.chats.length, 7);
@@ -484,6 +517,26 @@ await t('an unreadable group is marked unavailable, still classified from the li
   api.calls.length = 0;
   await runScan({ api, now: NOW + 60 * 60000, mode: 'full', log: () => {}, post: slack.post, alertGapMs: 0 });
   eq(api.calls.filter((c) => c[0] === 'messages' && c[1] === '-5000000004').length, 0, 'not retried within a day');
+});
+
+// --- queue filters -----------------------------------------------------------
+await t('a filter group is a list: any ticked value matches, groups combine', () => {
+  const fl = parseFilters({ mood: 'at_risk,negative', silence: 's0', reply: '' });
+  eq(fl.mood.join(), 'at_risk,negative'); eq(fl.silence.join(), 's0'); eq(fl.reply.length, 0);
+  const row = (over = {}) => ({ state: 'ok', flags: {}, sentiment: { label: 'negative' }, noContactDays: 0.5, reply: { medianMins: 3 }, history: 'read', tier: 'gold', alerts: {}, ...over });
+  eq(matchRow(row(), fl), true, 'negative mood, spoke today');
+  eq(matchRow(row({ sentiment: { label: 'positive' } }), fl), false, 'mood outside the list');
+  eq(matchRow(row({ noContactDays: 5 }), fl), false, 'other group fails');
+  eq(matchRow(row({ sentiment: null }), parseFilters({ mood: 'neutral' })), true, 'no sentiment reads as neutral');
+  eq(matchRow(row({ tier: null }), parseFilters({ tier: 'none' })), true, 'no tier reads as none');
+  eq(matchRow(row({ reply: null }), parseFilters({ reply: 'r5' })), false, 'no reply data never matches a reply bucket');
+});
+await t('the filter count and label ignore the all sentinel and read every group', () => {
+  const fl = parseFilters({ f: 'all', mood: 'at_risk', history: 'events,read', alerted: '1' });
+  eq(activeCount(fl), 4);
+  eq(activeCount(parseFilters({}), ['actionable']), 1, 'the default state filter counts');
+  eq(filterLabel(fl), 'mood at risk · history event stream/readable · alerted');
+  eq(queueHref({ mood: ['at_risk', 'negative'], f: [] }), '/queue?mood=at_risk%2Cnegative');
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);
