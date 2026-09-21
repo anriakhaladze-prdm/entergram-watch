@@ -571,6 +571,26 @@ await t('scope is the shared account\'s own group membership, whatever account t
   ok(r.ok);
 });
 
+await t('a group the chat feed never carries is booked from membership alone', async () => {
+  useKv();
+  const { chats, messages } = workspace();
+  // In the shared account's group list, absent from the workspace chat feed.
+  const groups = [
+    ...chats.map((c) => ({ telegramChatId: c.telegramId, inviteLink: null })),
+    { telegramChatId: '-4811530403', displayName: 'facai x Thrill.com', chatType: 'group', memberCount: 9, inviteLink: null },
+    { telegramChatId: '-4811530404', displayName: 'Vip host test', chatType: 'group', memberCount: 2, inviteLink: null },
+  ];
+  messages['-4811530403'] = [{ id: 1, date: ago(1), isOut: false, sender: { id: COLTON, name: 'Colton | Thrill VIP' }, text: 'hi' }];
+  const api = fakeEntergram({ chats, messages, groups });
+  const r = await runScan({ api, now: NOW, log: () => {}, post: fakeSlack().post, alertGapMs: 0 });
+  const book = await kv.getBook();
+  const row = book.chats.find((c) => c.chatId === '-4811530403');
+  ok(row, 'booked even though the feed never mentioned it');
+  eq(row.player, 'facai', 'the player is read from the group title');
+  eq(book.chats.some((c) => c.chatId === '-4811530404'), false, 'a group with no player in the title is still left out');
+  ok(r.ok);
+});
+
 await t('a concurrent run is skipped while the lock is held', async () => {
   const up = useKv();
   up.store.set('ew2:lock', 'someone-else');

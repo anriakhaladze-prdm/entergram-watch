@@ -28,7 +28,7 @@ export default function Overview() {
   }
 
   const tiles = [
-    { key: 'hosted', label: 'Groups', value: summary.active, sub: [summary.notJoined ? `${summary.notJoined} not joined` : null, summary.left ? `${summary.left} left` : null].filter(Boolean).join(' · ') || null, href: queueHref({ tab: 'active' }) },
+    { key: 'hosted', label: 'Chats', value: summary.total, sub: [`${summary.active} active`, summary.notJoined ? `${summary.notJoined} not joined` : null, summary.left ? `${summary.left} left` : null].filter(Boolean).join(' · '), href: queueHref({ tab: 'all' }) },
     { key: 'cov', label: 'Contacted in last 7 days', value: pct(summary.contacted7d, summary.contactKnown), tone: 'green', sub: `${summary.contacted7d} of ${summary.contactKnown}`, href: queueHref({ f: 'contacted' }) },
     { key: 'nc', label: 'No contact 7d+', value: summary.noContact7d, tone: summary.noContact7d ? 'yellow' : 'green', sub: summary.noContact7d ? `${pct(summary.noContact7d, summary.active)} of active` : null, href: queueHref({ f: 'no_contact' }) },
     { key: 'wait', label: 'Waiting on a reply', value: summary.waiting, tone: summary.waiting ? 'orange' : 'green', sub: summary.waiting ? `longest ${age(summary.waitingOldestDays)}` : null, href: queueHref({ f: 'waiting' }) },

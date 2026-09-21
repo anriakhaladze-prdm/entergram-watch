@@ -23,6 +23,9 @@ export function ScanStatus({ scan, scanAgeMin, stale, snap, runScan, compact = f
       <span className={`th-status th-status-${tone} typ-label-xsmall`} title={snap?.generatedAt ? new Date(snap.generatedAt).toLocaleString() : ''}>
         <span className="th-status-dot" />{label}
       </span>
+      <button type="button" className="th-pill focusable" onClick={() => runScan('full')} disabled={scan.busy} aria-disabled={scan.busy}>
+        <span className="th-pill-label typ-label-medium">Full sweep</span>
+      </button>
       <button type="button" className="th-pill th-pill-primary focusable" onClick={() => runScan('auto')} disabled={scan.busy} aria-disabled={scan.busy}>
         {scan.busy ? <span className="ow-spin" /> : null}
         <span className="th-pill-label typ-label-medium">{scan.busy ? 'Scanning' : 'Scan now'}</span>

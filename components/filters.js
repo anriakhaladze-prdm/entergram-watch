@@ -49,13 +49,17 @@ export const SETS = {
 // The queue's tabs. Groups is every chat with a player in it; the ones nobody
 // ever joined and the ones the player left are kept out of it and out of
 // every count on it.
+// The first tab is every chat in the book, so the figure on screen is the one
+// that reconciles against Entergram. The three that follow are its split.
 export const TABS = [
-  { key: 'active', label: 'Groups', test: (r) => !r.flags.left && !r.flags.not_joined, states: ['waiting', 'unhappy', 'no_contact', 'ignored', 'ok'] },
+  { key: 'all', label: 'All chats', test: () => true, states: ['waiting', 'unhappy', 'no_contact', 'ignored', 'ok'] },
+  { key: 'active', label: 'Active', test: (r) => !r.flags.left && !r.flags.not_joined, states: ['waiting', 'unhappy', 'no_contact', 'ignored', 'ok'] },
   { key: 'not_joined', label: 'Not joined', test: (r) => r.flags.not_joined && !r.flags.left, states: [] },
   { key: 'left', label: 'Left group', test: (r) => r.flags.left, states: [] },
 ];
 export const TAB = Object.fromEntries(TABS.map((t) => [t.key, t]));
-export const tabOf = (row) => TABS.find((t) => t.test(row))?.key || 'active';
+// "All chats" matches everything, so it can never be the tab a row belongs to.
+export const tabOf = (row) => TABS.filter((t) => t.key !== 'all').find((t) => t.test(row))?.key || 'active';
 
 // How a chat's timing was established, as the filter names it.
 export const HISTORY = [
