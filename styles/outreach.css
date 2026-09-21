@@ -144,7 +144,16 @@
 .ow-histo-bar[data-on='true'] { background: var(--color-green-1); }
 .ow-histo-label { color: var(--color-foreground-muted-3); white-space: nowrap; font-size: 11px; line-height: 16px; }
 
-.ow-trend { width: 100%; height: auto; display: block; }
+.ow-trend-box { width: 100%; overflow: hidden; }
+.ow-trend { display: block; }
+.ow-sparks { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--spacing-16); }
+.ow-spark { min-width: 0; padding: var(--spacing-12) var(--spacing-14); border-radius: var(--radius-16); background: var(--color-surface-2, var(--color-control-secondary)); }
+.ow-spark-head { display: flex; align-items: baseline; gap: var(--spacing-10); padding-bottom: var(--spacing-8); }
+.ow-spark-label { color: var(--color-foreground-muted-1); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ow-spark-val { font-weight: 800; }
+.ow-spark-delta { color: var(--color-foreground-muted-3); font-weight: 700; }
+.ow-spark-delta.is-up { color: var(--color-badge-orange); }
+.ow-spark-delta.is-down { color: var(--color-badge-green); }
 .ow-chart-empty { color: var(--color-foreground-muted-3); padding: var(--spacing-24) 0; }
 
 .ow-section-head {
@@ -154,6 +163,7 @@
 .ow-section-title { font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--color-foreground-muted-1); }
 .ow-section-sub { color: var(--color-foreground-muted-3); }
 .ow-page { padding: 0 var(--spacing-24) var(--spacing-24); }
+.ow-page-top { padding-top: var(--spacing-4); }
 
 /* One left edge. The card scroller and the grid scroller both carried 24px,
    so a table sat 24px further in than the toolbar and the tiles above it. The

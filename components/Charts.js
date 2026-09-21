@@ -3,7 +3,7 @@
 // category is labelled in text, so the hue reinforces rather than carries the
 // meaning, and every mark that stands for a set of players can be clicked to
 // open that set in the queue.
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 
 const T = (v) => `var(--color-badge-${v})`;
@@ -22,7 +22,7 @@ export function Stats({ items }) {
           </>
         );
         return s.href ? (
-          <button type="button" className="th-stat th-stat-drill focusable" key={s.key} onClick={() => router.push(s.href)} title={s.title || 'Open in the queue'}>{body}</button>
+          <button type="button" className="th-stat th-stat-drill focusable" key={s.key} onClick={() => router.push(s.href)}>{body}</button>
         ) : <div className="th-stat" key={s.key}>{body}</div>;
       })}
     </div>
@@ -65,7 +65,7 @@ export function Histogram({ title, sub, buckets, height = 160, tone = 'green' })
     <div className="th-chart">
       <div className="th-chart-head">
         <span className="th-chart-title typ-label-small">{title}</span>
-        <span className="th-chart-sub typ-label-small">{hover ? `${hover.label}: ${hover.value}${hover.href ? ' · click to open' : ''}` : sub}</span>
+        <span className="th-chart-sub typ-label-small">{hover ? `${hover.label}: ${hover.value}` : sub}</span>
       </div>
       <div className="ow-histo" style={{ height }}>
         {buckets.map((b) => (
@@ -83,48 +83,56 @@ export function Histogram({ title, sub, buckets, height = 160, tone = 'green' })
   );
 }
 
-/* ---- trend: change over time, one axis, direct-labelled last points ---- */
-export function Trend({ title, sub, series, days, height = 200, emptyNote }) {
-  if (days.length < 2) {
-    return (
-      <div className="th-chart">
-        <div className="th-chart-head"><span className="th-chart-title typ-label-small">{title}</span></div>
-        <div className="ow-chart-empty typ-label-small">{emptyNote || `One point is recorded per day. ${days.length ? 'The first point is in; the line appears tomorrow.' : 'The first point is recorded at the next scan.'}`}</div>
+/* ---- trend: one small chart per series, each on its own scale ----------- */
+function Spark({ label, tone, values, days, height }) {
+  const box = useRef(null);
+  const [width, setWidth] = useState(300);
+  useEffect(() => {
+    if (!box.current) return undefined;
+    const ro = new ResizeObserver((entries) => { const w = entries[0]?.contentRect?.width; if (w) setWidth(Math.max(120, Math.floor(w))); });
+    ro.observe(box.current);
+    return () => ro.disconnect();
+  }, []);
+  // Pixel coordinates on a fixed-height canvas: the line follows the panel's
+  // width without ever scaling its stroke or text.
+  const W = width, H = height, PAD = 6, PAD_B = 20;
+  const max = Math.max(1, ...values);
+  const x = (i) => PAD + (i * (W - 2 * PAD)) / Math.max(1, values.length - 1);
+  const y = (v) => PAD + (1 - v / max) * (H - PAD - PAD_B);
+  const last = values[values.length - 1], prev = values.length > 1 ? values[values.length - 2] : null;
+  const delta = prev == null ? null : last - prev;
+  return (
+    <div className="ow-spark">
+      <div className="ow-spark-head">
+        <span className="ow-spark-label typ-label-small">{label}</span>
+        <span className="ow-spark-val typ-display-xsmall" style={{ color: T(tone) }}>{last}</span>
+        {delta ? <span className={`ow-spark-delta typ-label-small${delta > 0 ? ' is-up' : ' is-down'}`}>{delta > 0 ? '+' : ''}{delta}</span> : null}
       </div>
-    );
-  }
-  const W = 640, H = height, PAD_L = 8, PAD_R = 110, PAD_T = 10, PAD_B = 22;
-  const max = Math.max(1, ...series.flatMap((s) => s.values));
-  const x = (i) => PAD_L + (i * (W - PAD_L - PAD_R)) / Math.max(1, days.length - 1);
-  const y = (v) => PAD_T + (1 - v / max) * (H - PAD_T - PAD_B);
+      <div ref={box} className="ow-trend-box" style={{ height }}>
+        <svg width={W} height={H} className="ow-trend" role="img" aria-label={label}>
+          <line x1={PAD} x2={W - PAD} y1={y(0)} y2={y(0)} stroke="var(--color-list-divider)" strokeWidth="1" strokeOpacity="0.5" />
+          <polyline fill="none" stroke={T(tone)} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" points={values.map((v, i) => `${x(i)},${y(v)}`).join(' ')} />
+          <circle cx={x(values.length - 1)} cy={y(last)} r="3.5" fill={T(tone)} stroke="var(--color-background-secondary)" strokeWidth="2" />
+          <text x={PAD} y={H - 5} fill="var(--color-foreground-muted-3)" fontSize="10" fontWeight="600">{days[0]}</text>
+          <text x={W - PAD} y={H - 5} textAnchor="end" fill="var(--color-foreground-muted-3)" fontSize="10" fontWeight="600">{days[days.length - 1]}</text>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+export function Trend({ title, sub, series, days, height = 120 }) {
   return (
     <div className="th-chart">
       <div className="th-chart-head">
         <span className="th-chart-title typ-label-small">{title}</span>
         {sub ? <span className="th-chart-sub typ-label-small">{sub}</span> : null}
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="ow-trend" role="img" aria-label={title}>
-        {[0, 0.5, 1].map((f) => (
-          <line key={f} x1={PAD_L} x2={W - PAD_R} y1={y(max * f)} y2={y(max * f)} stroke="var(--color-list-divider)" strokeWidth="1" />
-        ))}
-        {series.map((s) => (
-          <polyline key={s.key} fill="none" stroke={T(s.tone)} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"
-            points={s.values.map((v, i) => `${x(i)},${y(v)}`).join(' ')} />
-        ))}
-        {series.map((s, si) => {
-          const i = s.values.length - 1;
-          return (
-            <g key={`${s.key}-end`}>
-              <circle cx={x(i)} cy={y(s.values[i])} r="3.5" fill={T(s.tone)} stroke="var(--color-list-background-secondary)" strokeWidth="2" />
-              <text x={x(i) + 8} y={y(s.values[i]) + 4 + (si % 2 ? 12 : 0)} fill="var(--color-foreground-muted-1)" fontSize="11" fontWeight="700">
-                {s.values[i]} {s.label}
-              </text>
-            </g>
-          );
-        })}
-        <text x={PAD_L} y={H - 6} fill="var(--color-foreground-muted-3)" fontSize="10">{days[0]}</text>
-        <text x={W - PAD_R} y={H - 6} textAnchor="end" fill="var(--color-foreground-muted-3)" fontSize="10">{days[days.length - 1]}</text>
-      </svg>
+      {days.length < 2 ? <div className="ow-chart-empty typ-label-small">–</div> : (
+        <div className="ow-sparks">
+          {series.map((s) => <Spark key={s.key} label={s.label} tone={s.tone} values={s.values} days={days} height={height} />)}
+        </div>
+      )}
     </div>
   );
 }

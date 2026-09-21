@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Shell, { ScanStatus, Empty } from '../components/Shell';
 import Icon from '../components/Icon';
 import Menu from '../components/Menu';
+import Badge from '../components/Badge';
 import PlayerDrawer from '../components/PlayerDrawer';
 import { useSnapshot } from '../components/useSnapshot';
 import { parseFilters, matchRow, queueHref, SETS, TABS, TAB, tabOf, SILENCE_BUCKETS, REPLY_BUCKETS, HISTORY, GROUPS, moodOf, tierOf, silenceBucket, replyBucket, activeCount } from '../components/filters';
@@ -186,13 +187,13 @@ export default function Queue() {
                   return (
                     <div className="th-grid-row is-link" key={r.chatId} onClick={() => setParams({ chat: r.chatId })} role="link" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setParams({ chat: r.chatId }); }}>
                       {cell(<>{r.playerUsername || r.player || r.title}{r.tier ? <span className="ow-sub ow-small"> · {String(r.tier).replace('_', ' ')}</span> : null}</>, 'ow-clip')}
-                      {cell(<span className={`th-badge th-badge-${st.tone} typ-label-small`}>{st.label}</span>)}
+                      {cell(<Badge tone={st.tone}>{st.label}</Badge>)}
                       {cell(r.lastStaffAt ? age(r.staffQuietDays) : (r.noContactDays != null ? `${age(r.noContactDays)}+` : <span className="ow-muted">?</span>), `ow-nums${(r.noContactDays ?? 0) >= 7 ? ' ow-warn' : ''}`)}
                       {cell(r.lastPlayerAt ? age(r.playerQuietDays) : <span className="ow-muted">·</span>, `ow-nums${r.flags.waiting ? ' ow-stale' : ''}`)}
                       {cell(age(r.quietDays), 'ow-nums ow-sub')}
                       {cell(r.reply ? mins(r.reply.medianMins) : <span className="ow-muted">·</span>, 'ow-nums ow-sub')}
                       {cell(mood && mood !== 'neutral' ? <span className={`ow-mood ow-mood-${mood}`}>{mood.replace('_', ' ')}</span> : <span className="ow-muted">–</span>)}
-                      {cell(r.signals?.[0] || (r.history === 'read' ? 'in contact' : r.history === 'unavailable' ? 'history not readable' : 'history not read yet'), 'ow-sub ow-clip')}
+                      {cell(r.signals?.[0] || <span className="ow-muted">–</span>, 'ow-sub ow-clip')}
                     </div>
                   );
                 })}

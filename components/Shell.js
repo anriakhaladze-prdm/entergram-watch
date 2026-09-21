@@ -88,7 +88,7 @@ export function Empty({ error }) {
     <div className="th-empty">
       <div className="th-empty-title typ-heading-small">{error ? 'No data yet' : 'Loading'}</div>
       <div className="th-empty-sub typ-paragraph-small">
-        {error ? (/^no snapshot/i.test(error) ? 'Nothing has scanned yet. Press Scan now, or wait for the cron.' : error) : ''}
+        {error ? (/^no snapshot/i.test(error) ? 'No scan yet' : error) : ''}
       </div>
     </div>
   );

@@ -1,9 +1,9 @@
 {
   "name": "entergram-watch",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "type": "module",
-  "description": "Entergram player-outreach watcher. Vercel cron every five minutes, one Slack alert per player when they cross seven days without contact, and a dashboard of outreach coverage, response times and sentiment across every hosted player chat.",
+  "description": "Entergram player-outreach watcher. Vercel cron every five minutes, one Slack alert per player when they cross seven days without contact, and a dashboard of outreach coverage, response times and sentiment across every player chat, with a PDF export per player.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -13,10 +13,11 @@
     "probe": "node scripts/probe.js"
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.9.0",
     "next": "^14.2.25",
+    "next-auth": "^4.24.11",
     "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "next-auth": "^4.24.11"
+    "react-dom": "18.3.1"
   },
   "engines": {
     "node": "22.x"

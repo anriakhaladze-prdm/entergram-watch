@@ -5,7 +5,7 @@ import { extractFacts, normalizeMessage, isAcknowledgement, departureTarget, dep
 import { deriveRow, summarize } from '../lib/derive.js';
 import { dueAlerts, orderAlerts, formatAlert, prettyTier } from '../lib/alerts.js';
 import { identify, isStaffSender, ownerOfAccount, useLearnedStaff } from '../lib/team.js';
-import { ruleScan, detectProvider, selectWindow } from '../lib/sentiment.js';
+import { ruleScan, detectProvider, selectWindow, describeFlags } from '../lib/sentiment.js';
 import { postSlack, postSequence, RateLimited } from '../lib/slack.js';
 import { runScan, updateTally, learnedStaff } from '../lib/scan.js';
 import * as kv from '../lib/state.js';
@@ -517,6 +517,15 @@ await t('an unreadable group is marked unavailable, still classified from the li
   api.calls.length = 0;
   await runScan({ api, now: NOW + 60 * 60000, mode: 'full', log: () => {}, post: slack.post, alertGapMs: 0 });
   eq(api.calls.filter((c) => c[0] === 'messages' && c[1] === '-5000000004').length, 0, 'not retried within a day');
+});
+
+await t('a rule-based verdict carries a plain reason, and the row signal uses it', () => {
+  const r = ruleScan(['this site is taking all my money, im done']);
+  eq(r.label, 'at_risk'); eq(r.reason, 'Talking about leaving, says the site is taking all their money');
+  eq(ruleScan(['thanks so much']).reason, null, 'a positive verdict has no complaint to describe');
+  eq(describeFlags(['competitor', 'withdrawal']), 'Withdrawal not received, mentions a rival');
+  const row = derive(chat({ lastMessageDate: ago(0.5), lastMessage: { date: ago(0.5), sender: { id: PLAYER } } }), factsOf([msg(0.5, PLAYER, { text: 'this site is taking all my money, im done' }), msg(1, COLTON)]), { sentiment: { ...r, lastPlayerAt: ago(0.5) } });
+  eq(row.state, 'unhappy'); eq(row.signals[0], r.reason);
 });
 
 // --- queue filters -----------------------------------------------------------

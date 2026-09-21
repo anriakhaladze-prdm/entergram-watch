@@ -35,7 +35,8 @@ line after the seed post.
 past seven days without contact, players waiting on a reply, unhappy players,
 median and p90 time to first reply. Every figure opens the matching set in the
 queue. The distribution of days since we last spoke, mood, state, reply-time
-distribution and a daily trend.
+distribution and a daily trend of the three actionable counts, one small chart
+each on its own scale.
 
 **Queue.** Three tabs: Active (the worklist), Time-barred, Left group. The
 Filters control opens one menu with every group (state, mood, days since we
@@ -45,10 +46,12 @@ with or, groups with and. Filters are URL parameters, so any view is a link:
 `/queue?f=no_contact`, `/queue?mood=at_risk,negative`, `/queue?tab=barred`,
 `/queue?chat=<telegram id>`. The Active tab opens on Needs action.
 Clicking a row opens the player: when each side last spoke and who replied,
-reply times, sentiment with the quote it was read from, alerts sent, and the
-recent conversation read live from Entergram (never stored). Entergram has no
-per-chat URL, so the Entergram button copies the chat name and opens the app
-for one paste into its search.
+reply times, sentiment with the quote it was read from, alerts posted, and the
+recent conversation read live from Entergram (never stored). Export PDF
+produces the same view as a document (`/api/export/<chat id>`), rendered
+server side in the dashboard's own style with the Oxanium weights in
+`public/fonts`. Entergram has no per-chat URL, so the Entergram button copies
+the chat name and opens the app for one paste into its search.
 
 **Activity.** Every scan with its mode, duration and outcome; every alert
 posted; consecutive failures; staff-shaped senders missing from the team table.
@@ -102,9 +105,11 @@ messages, and nothing after it. Rules run on that window with the newest
 message weighted most, and a complaint in the last message is never cancelled
 by an earlier thank-you. The model reads the same exchange in order, with the
 host's lines marked as context, and judges the player's mood at the end of it;
-chats that only got the rules are caught up on later ticks. Text is passed to
-the model and dropped; only the label, the reason and the line the verdict
-rests on are stored.
+chats that only got the rules are caught up on later ticks, and until then the
+rule flags are written out as the reason in plain words. Text is passed to the
+model and dropped; only the label, the reason and the line the verdict rests
+on are stored. The dashboard shows the label, the reason and that line, and
+nothing about how the verdict was reached.
 
 ## The scan
 

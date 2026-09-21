@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Icon from './Icon';
+import Badge from './Badge';
 import { STATE, MOODS, age, mins } from '../lib/states.js';
 
 // The drill-in behind a row: what the scan knows about this player, and the
@@ -24,6 +25,7 @@ export default function PlayerDrawer({ row, onClose }) {
   if (!row) return null;
   const st = STATE[row.state] || { label: row.state, tone: 'gray' };
   const mood = MOODS.find((x) => x.key === row.sentiment?.label);
+  const posted = Object.entries(row.alerts || {}).filter(([, v]) => v && !v.seeded);
   const copyTitle = () => navigator.clipboard?.writeText(row.title).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {});
   // Entergram has no per-chat URL, so the name goes on the clipboard and the
   // app opens ready for one paste into its search.
@@ -44,11 +46,11 @@ export default function PlayerDrawer({ row, onClose }) {
           <div className="th-drawer-head">
             <div className="ow-drawer-title">
               <div className="ow-drawer-name typ-heading-small">{row.playerUsername || row.player}</div>
-              <div className="ow-drawer-sub typ-label-small">
-                <span className={`th-badge th-badge-${st.tone} typ-label-small`}>{st.label}</span>
-                {row.tier ? <span className="th-badge th-badge-blue typ-label-small">{tier(row.tier)}</span> : null}
-                {mood && mood.key !== 'neutral' ? <span className={`th-badge th-badge-${mood.tone} typ-label-small`}>{mood.label}</span> : null}
-                <span className="ow-sub">{row.title}</span>
+              <div className="ow-drawer-sub">
+                <Badge tone={st.tone}>{st.label}</Badge>
+                {row.tier ? <Badge tone="blue">{tier(row.tier)}</Badge> : null}
+                {mood && mood.key !== 'neutral' ? <Badge tone={mood.tone}>{mood.label}</Badge> : null}
+                <span className="ow-sub typ-label-small">{row.title}</span>
               </div>
             </div>
             <button type="button" className="th-action focusable" onClick={onClose} aria-label="Close"><Icon name="close" size={18} /></button>
@@ -56,21 +58,20 @@ export default function PlayerDrawer({ row, onClose }) {
           <div className="th-drawer-body">
             <div className="ow-drawer-acts">
               {row.inviteLink ? <a className="th-pill focusable" href={row.inviteLink} target="_blank" rel="noreferrer"><span className="th-pill-label typ-label-medium">Open in Telegram</span></a> : null}
-              <button type="button" className="th-pill focusable" onClick={openEntergram}><span className="th-pill-label typ-label-medium">{copied ? 'Name copied, paste in Entergram search' : 'Open Entergram'}</span></button>
+              <button type="button" className="th-pill focusable" onClick={openEntergram}><span className="th-pill-label typ-label-medium">{copied ? 'Name copied' : 'Open Entergram'}</span></button>
               <button type="button" className="th-pill focusable" onClick={copyTitle}><span className="th-pill-label typ-label-medium">Copy chat name</span></button>
+              <a className="th-pill focusable" href={`/api/export/${encodeURIComponent(row.chatId)}`} download><span className="th-pill-label typ-label-medium">Export PDF</span></a>
             </div>
 
-            <div className="ow-drawer-signal typ-paragraph-small">{row.signals?.[0] || 'in contact'}</div>
+            {row.signals?.[0] && row.signals[0] !== row.sentiment?.reason ? <div className="ow-drawer-signal typ-paragraph-small">{row.signals[0]}</div> : null}
 
             <div className="th-meta">
-              {fact('We last spoke', row.lastStaffAt ? <>{age(row.staffQuietDays)} ago{row.lastStaffBy ? <span className="ow-sub"> · {row.lastStaffBy}</span> : null}</> : row.history === 'read' ? 'not in the readable history' : 'unknown')}
-              {fact('Player last spoke', row.lastPlayerAt ? <>{age(row.playerQuietDays)} ago{row.ack ? <span className="ow-sub"> · closed the exchange</span> : ''}</> : 'no player message on record')}
-              {fact('Any message', row.lastMessageAt ? `${age(row.quietDays)} ago` : '–')}
-              {fact('First reply', row.reply ? <>median {mins(row.reply.medianMins)}<span className="ow-sub"> · p90 {mins(row.reply.p90Mins)} · worst {mins(row.reply.worstMins)} · {row.reply.samples} exchanges</span></> : 'not measured', 'ow-wrap')}
+              {fact('We last spoke', row.lastStaffAt ? <>{age(row.staffQuietDays)} ago{row.lastStaffBy ? <span className="ow-sub"> · {row.lastStaffBy}</span> : null}</> : '–')}
+              {fact('Player last spoke', row.lastPlayerAt ? <>{age(row.playerQuietDays)} ago{row.ack ? <span className="ow-sub"> · closed the exchange</span> : ''}</> : '–')}
+              {fact('Last message', row.lastMessageAt ? `${age(row.quietDays)} ago` : '–')}
+              {fact('First reply', row.reply ? <>median {mins(row.reply.medianMins)}<span className="ow-sub"> · p90 {mins(row.reply.p90Mins)} · worst {mins(row.reply.worstMins)} · {row.reply.samples} exchanges</span></> : '–', 'ow-wrap')}
               {fact('Members', row.membersCount ?? '–')}
-              {fact('History', row.history === 'read' ? `read ${row.historyAt ? when(row.historyAt) : ''}` : row.history === 'events' ? 'event stream, text not readable' : row.history === 'unavailable' ? 'not readable, last message only' : 'queued for a read')}
-              {fact('Known by accounts', (row.accounts || []).join(', ') || '–')}
-              {fact('Chat id', row.chatId, 'mono')}
+              {fact('Tier', row.tier ? tier(row.tier) : '–')}
             </div>
 
             {row.staffSpeakers?.length ? (
@@ -86,23 +87,21 @@ export default function PlayerDrawer({ row, onClose }) {
 
             {row.sentiment ? (
               <div className="ow-block">
-                <div className="ow-block-title typ-label-xsmall">Sentiment, from the player&rsquo;s messages only</div>
+                <div className="ow-block-title typ-label-xsmall">Sentiment</div>
                 <div className="typ-paragraph-small">
-                  <span className={`ow-mood ow-mood-${row.sentiment.label}`}>{row.sentiment.label.replace('_', ' ')}</span>
+                  <span className={`ow-mood ow-mood-${row.sentiment.label}`}>{(mood?.label || row.sentiment.label).replace('_', ' ')}</span>
                   {row.sentiment.reason ? <> · {row.sentiment.reason}</> : null}
-                  {row.sentiment.flags?.length ? <span className="ow-sub"> · {row.sentiment.flags.join(', ')}</span> : null}
-                  <span className="ow-sub"> · {row.sentiment.source}{row.sentiment.scoredAt ? `, ${when(row.sentiment.scoredAt)}` : ''}</span>
                 </div>
                 {row.sentiment.quote ? <blockquote className="ow-quote typ-paragraph-small">{row.sentiment.quote}</blockquote> : null}
               </div>
             ) : null}
 
-            {row.alerts && Object.keys(row.alerts).length ? (
+            {posted.length ? (
               <div className="ow-block">
                 <div className="ow-block-title typ-label-xsmall">Slack alerts</div>
                 <div className="typ-paragraph-small">
-                  {Object.entries(row.alerts).map(([k, v]) => (
-                    <div key={k}>{k === 'no_contact' ? '7 days without contact' : 'Churn signal'}: {v.seeded ? `baseline recorded ${when(v.at)}, not posted` : `posted ${when(v.at)}`}</div>
+                  {posted.map(([k, v]) => (
+                    <div key={k}>{k === 'no_contact' ? '7 days without contact' : 'Churn signal'} · {when(v.at)}</div>
                   ))}
                 </div>
               </div>
@@ -110,13 +109,13 @@ export default function PlayerDrawer({ row, onClose }) {
 
             <div className="ow-block">
               <div className="ow-block-title typ-label-xsmall">Recent conversation</div>
-              {!conv ? <div className="ow-sub typ-label-small">Loading from Entergram…</div>
-                : conv.unavailable ? <div className="ow-sub typ-label-small">Not readable. @Thrill_VIP_Ops is not a member of this group{conv.error ? ` (${conv.error})` : ''}.</div>
+              {!conv ? <div className="ow-sub typ-label-small">Loading</div>
+                : conv.unavailable ? <div className="ow-sub typ-label-small">Not readable. @Thrill_VIP_Ops is not in this group.</div>
                 : (
                   <div className="ow-transcript">
                     {conv.messages.map((mm) => (
                       <div key={mm.id || mm.date} className={`ow-msg ow-msg-${mm.side}`}>
-                        <div className="ow-msg-meta typ-label-xsmall">{mm.side === 'system' ? 'system' : mm.name} · {when(mm.date)}</div>
+                        <div className="ow-msg-meta typ-label-xsmall">{mm.side === 'system' ? when(mm.date) : <>{mm.name} · {when(mm.date)}</>}</div>
                         <div className="ow-msg-text typ-paragraph-small">{mm.text || <span className="ow-sub">(media)</span>}</div>
                       </div>
                     ))}

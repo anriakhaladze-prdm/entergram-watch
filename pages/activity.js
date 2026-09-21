@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import Badge from '../components/Badge';
 import Shell, { ScanStatus, Empty } from '../components/Shell';
 import { useSnapshot } from '../components/useSnapshot';
 import { queueHref } from '../components/filters';
@@ -93,7 +94,7 @@ export default function Activity() {
               {runs.map((r, i) => (
                 <div className="th-grid-row" key={`${r.at}-${i}`}>
                   {cell(when(r.at), 'ow-sub')}
-                  {cell(r.ok ? r.mode : <span className="th-badge th-badge-red typ-label-small">failed</span>)}
+                  {cell(r.ok ? r.mode : <Badge tone="red">failed</Badge>)}
                   {cell(r.ms != null ? `${Math.round(r.ms / 1000)}s` : '–', 'ow-nums ow-sub')}
                   {cell(r.changed ?? '–', 'ow-nums ow-sub')}
                   {cell(r.read ?? '–', 'ow-nums ow-sub')}
