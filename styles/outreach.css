@@ -247,3 +247,19 @@
 .th-grid-row > .th-grid-cell:first-child .th-grid-cell-inner,
 .th-grid-headrow > .th-grid-headcell:first-child > div { padding-left: var(--spacing-14); }
 
+
+/* ---- logs: sessions, block-list ------------------------------------------ */
+.th-pill-danger { background: color-mix(in oklab, var(--color-badge-red) 10%, transparent); }
+.th-pill-danger .th-pill-label { color: var(--color-badge-red); }
+.th-pill-danger:hover:not(:disabled):not([aria-disabled='true']) { background: color-mix(in oklab, var(--color-badge-red) 16%, transparent); }
+.th-pill-danger:hover:not(:disabled):not([aria-disabled='true']) .th-pill-label { color: var(--color-badge-red); }
+.th-pill:disabled .th-pill-label { opacity: .6; }
+.ow-chip-danger { color: var(--color-badge-red); border-color: color-mix(in oklab, var(--color-badge-red) 30%, transparent); }
+.ow-chip-danger:hover { background: color-mix(in oklab, var(--color-badge-red) 10%, transparent); }
+.th-chip:disabled { opacity: .5; cursor: default; }
+.ow-blockform { display: flex; align-items: center; gap: var(--spacing-12); padding: 0 var(--spacing-24) var(--spacing-16); }
+.ow-blockform .th-field { max-width: 320px; }
+.ow-logs-block { padding: var(--spacing-24) var(--spacing-24) 0; }
+.ow-logs-block .th-grid-scroll { margin-inline: 0; }
+.ow-modal-text { margin: 0; color: var(--color-foreground-text); overflow-wrap: anywhere; }
+.ow-modal-acts { display: flex; justify-content: flex-end; gap: var(--spacing-8); margin-top: var(--spacing-24); }

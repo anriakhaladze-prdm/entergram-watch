@@ -11,7 +11,8 @@ import { fmtAge } from './useSnapshot';
 const NAV = [
   { href: '/', label: 'Overview', glyph: 'chart' },
   { href: '/queue', label: 'Queue', glyph: 'warn' },
-  { href: '/activity', label: 'Activity', glyph: 'info' },
+  // The audit trails, for the monitoring whitelist only.
+  { href: '/logs', label: 'Logs', glyph: 'info', monitor: true },
 ];
 
 export function ScanStatus({ scan, scanAgeMin, stale, snap, runScan, compact = false }) {
@@ -30,7 +31,7 @@ export function ScanStatus({ scan, scanAgeMin, stale, snap, runScan, compact = f
   );
 }
 
-export default function Shell({ title, crumb, toolbar, children, email, status }) {
+export default function Shell({ title, crumb, toolbar, children, email, status, monitor = false }) {
   const { pathname } = useRouter();
   return (
     <>
@@ -61,7 +62,7 @@ export default function Shell({ title, crumb, toolbar, children, email, status }
 
         <nav className="th-rail" aria-label="Sections">
           <ul className="th-nav">
-            {NAV.map((n) => (
+            {NAV.filter((n) => !n.monitor || monitor).map((n) => (
               <li className="th-nav-item" key={n.href}>
                 <Link className="th-nav-link focusable int-hover-scale-plus" href={n.href} aria-current={pathname === n.href ? 'page' : undefined}>
                   <span className="th-nav-tile"><Icon name={n.glyph} size={20} /></span>

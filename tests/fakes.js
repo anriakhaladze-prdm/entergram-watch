@@ -21,6 +21,8 @@ export function fakeUpstash() {
       case 'LTRIM': { const l = lists.get(a[0]) || []; lists.set(a[0], l.slice(Number(a[1]), Number(a[2]) + 1)); return 'OK'; }
       case 'LRANGE': { const l = lists.get(a[0]) || []; return l.slice(Number(a[1]), Number(a[2]) + 1); }
       case 'HSET': { const h = hashes.get(a[0]) || {}; h[a[1]] = a[2]; hashes.set(a[0], h); return 1; }
+      case 'HGET': { const h = hashes.get(a[0]); return h && a[1] in h ? h[a[1]] : null; }
+      case 'HDEL': { const h = hashes.get(a[0]); if (!h) return 0; let n = 0; for (const f of a.slice(1)) if (f in h) { delete h[f]; n++; } return n; }
       case 'HGETALL': { const h = hashes.get(a[0]); return h ? Object.entries(h).flat() : []; }
       default: return { error: `unsupported ${op}` };
     }

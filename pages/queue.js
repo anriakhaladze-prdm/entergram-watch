@@ -163,7 +163,7 @@ export default function Queue() {
   );
 
   return (
-    <Shell title="Queue" crumb="Queue" email={session?.user?.email} status={status} toolbar={toolbar}>
+    <Shell title="Queue" crumb="Queue" email={session?.user?.email} monitor={Boolean(session?.monitor)} status={status} toolbar={toolbar}>
       {error || !snap ? <Empty error={error} /> : (
         <>
           <div className="th-grid-scroll">

@@ -1,6 +1,6 @@
 // Regression tests for the rules that decide whether a human gets pinged, and
 // for the scan itself, run end to end against in-memory doubles.
-import { isPlayerChat, playerNameFromTitle, dedupeChats, chatMeta } from '../lib/scope.js';
+import { isPlayerChat, playerNameFromTitle, dedupeChats, chatMeta, isInScope, SCOPE_ACCOUNTS } from '../lib/scope.js';
 import { extractFacts, normalizeMessage, isAcknowledgement, departureTarget, departureIsPlayer } from '../lib/facts.js';
 import { deriveRow, summarize } from '../lib/derive.js';
 import { dueAlerts, orderAlerts, formatAlert, prettyTier } from '../lib/alerts.js';
@@ -12,6 +12,9 @@ import * as kv from '../lib/state.js';
 import { fakeUpstash, fakeEntergram, fakeSlack } from './fakes.js';
 import { applyEvent, emptyEv, factsFromEvents, ingestEvents } from '../lib/events.js';
 import { parseFilters, matchRow, activeCount, filterLabel, queueHref } from '../components/filters.js';
+import { isMonitor, onDomain, describeUa, clientIp } from '../lib/access.js';
+import { emailBlocked, sessionRevoked, forget, __reset as resetGate } from '../lib/gate.js';
+import { buildAuthOptions } from '../lib/auth.js';
 
 const NEGATIVE_LABELS = new Set(['negative', 'at_risk']);
 let pass = 0, fail = 0;
@@ -36,6 +39,17 @@ const factsOf = (msgs, player = 'testplayer') => extractFacts(msgs, { player, no
 await t('player chats are recognised in both title orderings', () => {
   eq(isPlayerChat(chat({ title: 'swish718 x Thrill.com' })), true);
   eq(isPlayerChat(chat({ title: 'Thrill.com x Shrimpmoneyy VIP' })), true);
+});
+await t('only groups the shared account sits in are in scope', () => {
+  ok(SCOPE_ACCOUNTS.has('thrill_vip_ops'), 'the shared account from the team table');
+  const items = [
+    chat({ id: 'a', telegramId: '-1', connectedAccount: { id: 'x', username: 'byronthrill' } }),
+    chat({ id: 'b', telegramId: '-2', connectedAccount: { id: 'x', username: 'byronthrill' } }),
+    chat({ id: 'c', telegramId: '-2', connectedAccount: { id: 'v', username: 'Thrill_VIP_Ops' } }),
+  ];
+  const d = dedupeChats(items);
+  eq(d.filter(isInScope).map((c) => c.telegramId).join(), '-2', 'a group only a personal account knows is not in Entergram for the team');
+  eq(isInScope({ accounts: ['thrill_vip_ops'] }), true, 'case does not matter');
 });
 await t('affiliate and partnership rooms and big communities are not player chats', () => {
   eq(isPlayerChat(chat({ title: '(AFF) ID 80281 x BCGAME' })), false);
@@ -111,10 +125,10 @@ await t('staff who replied are listed by message count, whoever they are', () =>
   eq(f.staffSpeakers.map((x) => `${x.name}:${x.msgs}`).join(' '), 'Colton:2 Kyle:1 VIP Ops:1');
   ok(!('host' in f), 'no host is claimed');
 });
-await t('a former host is still staff, and an old chat of theirs is simply time-barred', () => {
+await t('a former host is still staff, and an old chat of theirs is simply no contact', () => {
   const f = factsOf([msg(400, '31337', { senderName: 'Byron Thrill' }), msg(401, PLAYER)]);
   eq(f.lastStaffBy, 'Byron Petzer'); eq(f.staffSpeakers[0].name, 'Byron Petzer');
-  eq(derive(chat({ lastMessageDate: ago(400) }), f).state, 'barred');
+  eq(derive(chat({ lastMessageDate: ago(400) }), f).state, 'no_contact');
 });
 await t('acknowledgements close an exchange, questions and complaints do not', () => {
   eq(isAcknowledgement('thanks!'), true); eq(isAcknowledgement("I'd appreciate it. Thank you"), true); eq(isAcknowledgement('gg'), true);
@@ -152,11 +166,11 @@ await t('we posting into a silent player is ignored, and counts as contacted', (
   const r = derive(chat({ lastMessageDate: ago(2), lastMessage: { date: ago(2), sender: { id: COLTON } } }), factsOf([msg(2, COLTON), msg(40, PLAYER)]));
   eq(r.state, 'ignored'); eq(r.flags.contacted7d, true); eq(r.flags.no_contact, false);
 });
-await t('20 days of silence is time-barred, not no_contact, and 19 is still no_contact', () => {
+await t('a long silence stays no_contact however old, there is no time bar', () => {
   const r = derive(chat({ lastMessageDate: ago(25) }), factsOf([msg(25, COLTON), msg(26, PLAYER)]));
-  eq(r.state, 'barred'); eq(r.flags.barred, true); eq(r.flags.no_contact, true);
-  const live = derive(chat({ lastMessageDate: ago(19) }), factsOf([msg(19, COLTON), msg(20, PLAYER)]));
-  eq(live.state, 'no_contact'); eq(live.flags.barred, false);
+  eq(r.state, 'no_contact'); eq(r.flags.no_contact, true); ok(!('barred' in r.flags));
+  const old = derive(chat({ lastMessageDate: ago(400) }), factsOf([msg(400, COLTON), msg(401, PLAYER)]));
+  eq(old.state, 'no_contact'); eq(Math.round(old.noContactDays), 400);
 });
 await t('without history, a last message from staff dates our silence exactly', () => {
   const r = derive(chat({ lastMessageDate: ago(9), lastMessage: { date: ago(9), isOut: false, sender: { id: COLTON } } }), null);
@@ -173,22 +187,22 @@ await t('a message newer than the last history read is attributed from the chat 
   const r = derive(chat({ lastMessageDate: ago(1), lastMessage: { date: ago(1), isOut: false, sender: { id: COLTON } } }), f);
   eq(r.lastStaffAt, ago(1)); eq(r.state, 'ignored', 'we posted a day ago into a player silent ten days'); eq(r.flags.contacted7d, true); eq(r.flags.no_contact, false);
 });
-await t('an unread chat under a former host account with no activity is time-barred, not a special case', () => {
+await t('an unread chat under a former host account with no activity is an ordinary row, not a special case', () => {
   const b = derive(chat({ connectedAccount: { id: 'y', username: 'byronthrill' }, lastMessageDate: ago(400) }), null);
-  eq(b.state, 'barred'); eq(b.flags.barred, true);
+  eq(b.flags.no_contact, true); eq(b.state, 'waiting', 'the player spoke last and nobody answered'); ok(!('barred' in b.flags));
 });
 await t('negative sentiment promotes an otherwise fine row to unhappy', () => {
   const r = derive(chat(), factsOf([msg(0.2, COLTON), msg(0.5, PLAYER)]), { sentiment: { label: 'at_risk', reason: 'withdrawal stuck, moving to Stake' } });
   eq(r.state, 'unhappy'); eq(r.flags.unhappy, true);
 });
-await t('summary counts active players and coverage, time-barred aside', () => {
+await t('summary counts active players and coverage', () => {
   const rows = [
     derive(chat({ telegramId: '-1' }), factsOf([msg(1, COLTON), msg(2, PLAYER)])),
     derive(chat({ telegramId: '-2', lastMessageDate: ago(8) }), factsOf([msg(8, PLAYER, { text: 'ok' }), msg(9, COLTON)])),
     derive(chat({ telegramId: '-3', connectedAccount: { id: 'y', username: 'byronthrill' }, lastMessageDate: ago(400) }), null),
   ];
   const s = summarize(rows);
-  eq(s.total, 3); eq(s.hosted, 3); eq(s.active, 2); eq(s.barred, 1); eq(s.noContact7d, 1); eq(s.contacted7d, 1); eq(s.contactKnown, 2);
+  eq(s.total, 3); eq(s.hosted, 3); eq(s.active, 3); eq(s.noContact7d, 2); eq(s.contacted7d, 1); eq(s.contactKnown, 2);
 });
 
 // --- alert policy --------------------------------------------------------------
@@ -218,7 +232,7 @@ await t('unhappy needs a recent player message behind it', () => {
   const current = derive(chat({ lastMessageDate: ago(1) }), factsOf([msg(1, PLAYER), msg(1.1, COLTON)]), { sentiment: { label: 'negative', lastPlayerAt: ago(1) } });
   eq(current.flags.unhappy, true);
 });
-await t('no alert for time-barred, left or unhosted chats', () => {
+await t('no alert for a silence that crossed the line long ago', () => {
   eq(dueAlerts(derive(chat({ lastMessageDate: ago(25) }), factsOf([msg(25, COLTON), msg(26, PLAYER)])), {}, { now: NOW }).length, 0);
   eq(dueAlerts(derive(chat({ connectedAccount: { id: 'y', username: 'byronthrill' }, lastMessageDate: ago(20) }), null), {}, { now: NOW }).length, 0);
 });
@@ -361,7 +375,7 @@ const workspace = () => {
     connectedAccount: { id: 'acct-vipops', username: 'Thrill_VIP_Ops' },
     lastMessageDate: ago(1), updatedAt: ago(1), lastMessage: { date: ago(1), isOut: false, sender: { id: PLAYER } }, ...over,
   });
-  // 1..3 fine, 4..6 already past a week with no word from us, 7 time-barred, 8 an affiliate room, 9 duplicate of 5 under another account
+  // 1..3 fine, 4..6 already past a week with no word from us, 7 silent for months, 8 an affiliate room, 9 duplicate of 5 under another account
   for (let i = 1; i <= 3; i++) chats.push(mk(i, { lastMessageDate: ago(0.5), updatedAt: ago(0.5), lastMessage: { date: ago(0.5), sender: { id: COLTON } } }));
   for (let i = 4; i <= 6; i++) chats.push(mk(i, { lastMessageDate: ago(10), updatedAt: ago(10), lastMessage: { date: ago(10), sender: { id: COLTON } } }));
   chats.push(mk(7, { lastMessageDate: ago(200), updatedAt: ago(200), lastMessage: { date: ago(200), sender: { id: COLTON } } }));
@@ -383,7 +397,7 @@ await t('first run seeds the backlog silently, builds the book once per group, a
   const r = await runScan({ api, now: NOW, log: () => {}, post: slack.post, alertGapMs: 0 });
   eq(r.ok, true); eq(r.mode, 'full');
   eq(r.summary.total, 7, 'seven distinct player chats, affiliate room and duplicate excluded');
-  eq(r.summary.noContact7d, 3); eq(r.posted, 0); eq(r.due, 0, 'ten days in is late news, dashboard only');
+  eq(r.summary.noContact7d, 4); eq(r.posted, 0); eq(r.due, 0, 'ten days in is late news, dashboard only');
   eq(slack.posts.length, 1); ok(slack.posts[0].includes('restarted'), slack.posts[0]);
   const meta = up.get('ew2:meta'); ok(meta.seededAt, 'seeded'); ok(meta.lastFullAt);
   const book = await kv.getBook(); eq(book.chats.length, 7);
@@ -546,6 +560,39 @@ await t('the filter count and label ignore the all sentinel and read every group
   eq(activeCount(parseFilters({}), ['actionable']), 1, 'the default state filter counts');
   eq(filterLabel(fl), 'mood at risk · history event stream/readable · alerted');
   eq(queueHref({ mood: ['at_risk', 'negative'], f: [] }), '/queue?mood=at_risk%2Cnegative');
+});
+
+// --- access ------------------------------------------------------------------
+await t('the monitoring whitelist is the two named accounts, the domain admits the rest', () => {
+  eq(isMonitor('anri.akhaladze@paradym.io'), true); eq(isMonitor('Shane.Austin@paradym.io'), true); eq(isMonitor('kyle@paradym.io'), false);
+  eq(onDomain('kyle@paradym.io'), true); eq(onDomain('kyle@gmail.com'), false);
+  eq(describeUa('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36 Edg/128.0'), 'Edge on Windows');
+  eq(clientIp({ 'x-forwarded-for': '1.2.3.4, 10.0.0.1' }), '1.2.3.4');
+});
+await t('a block or a revoke ends the session on the next read, and a monitor cannot be blocked from the store gate', async () => {
+  useKv(); resetGate();
+  const opts = buildAuthOptions({ ip: '1.2.3.4', device: 'Edge on Windows' });
+  const token = { email: 'kyle@paradym.io', name: 'Kyle', sid: 'sid-1' };
+  const s1 = await opts.callbacks.session({ session: { user: {} }, token });
+  eq(s1.user.email, 'kyle@paradym.io'); eq(s1.monitor, false); eq(s1.sid, 'sid-1');
+  const s2 = await opts.callbacks.session({ session: { user: {} }, token: { ...token, email: 'anri.akhaladze@paradym.io' } });
+  eq(s2.monitor, true);
+  await kv.blockEmail('kyle@paradym.io', 'anri.akhaladze@paradym.io'); forget(null, 'kyle@paradym.io');
+  eq(await emailBlocked('kyle@paradym.io'), true);
+  eq(await opts.callbacks.session({ session: { user: {} }, token }), null, 'blocked address reads as signed out');
+  eq(await opts.callbacks.signIn({ profile: { email: 'kyle@paradym.io', name: 'Kyle' } }), '/auth/denied?reason=blocked');
+  eq(await opts.callbacks.signIn({ profile: { email: 'kyle@gmail.com' } }), '/auth/denied?reason=domain');
+  eq(await opts.callbacks.signIn({ profile: { email: 'colton@paradym.io' } }), true);
+  const log = await kv.getSignIns(); eq(log[0].denied, true); eq(log[0].email, 'kyle@paradym.io'); eq(log[0].ip, '1.2.3.4');
+  await kv.unblockEmail('kyle@paradym.io'); forget(null, 'kyle@paradym.io');
+  eq(await emailBlocked('kyle@paradym.io'), false);
+  await kv.putSession({ sid: 'sid-1', email: 'kyle@paradym.io', createdAt: Date.now(), ip: '1.2.3.4', device: 'Edge on Windows' });
+  await kv.putSession({ sid: 'sid-old', email: 'kyle@paradym.io', createdAt: Date.now() - 10 * 3600000 });
+  eq((await kv.listSessions()).map((r) => r.sid).join(), 'sid-1', 'an expired token is no session');
+  await kv.revokeSession('sid-1', 'anri.akhaladze@paradym.io'); forget('sid-1');
+  eq(await sessionRevoked('sid-1'), true);
+  eq(await opts.callbacks.session({ session: { user: {} }, token }), null, 'revoked session reads as signed out');
+  eq((await kv.listSessions()).length, 0);
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

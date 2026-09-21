@@ -7,7 +7,9 @@ export default function Denied() {
   const { query } = useRouter();
   const message = query.reason === 'domain'
     ? 'That account is not on the paradym.io workspace.'
-    : 'Sign in could not be completed.';
+    : query.reason === 'blocked'
+      ? 'That account does not have access.'
+      : 'Sign in could not be completed.';
 
   return (
     <>

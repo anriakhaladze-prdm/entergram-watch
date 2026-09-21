@@ -1,7 +1,11 @@
 import NextAuthModule from 'next-auth';
-import { authOptions } from '../../../lib/auth.js';
+import { buildAuthOptions, requestContext } from '../../../lib/auth.js';
 
 // Same CommonJS interop as lib/auth.js: the callable lives on `default`.
 const NextAuth = NextAuthModule.default ?? NextAuthModule;
 
-export default NextAuth(authOptions);
+// Built per request so the sign-in callbacks can record the device and
+// address a session was opened from.
+export default function handler(req, res) {
+  return NextAuth(req, res, buildAuthOptions(requestContext(req)));
+}

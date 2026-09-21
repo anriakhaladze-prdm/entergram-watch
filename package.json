@@ -1,6 +1,6 @@
 {
   "name": "entergram-watch",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
   "type": "module",
   "description": "Entergram player-outreach watcher. Vercel cron every five minutes, one Slack alert per player when they cross seven days without contact, and a dashboard of outreach coverage, response times and sentiment across every player chat, with a PDF export per player.",

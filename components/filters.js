@@ -46,11 +46,10 @@ export const SETS = {
   alerted: { label: 'Alerted', test: (r) => Boolean(r.alerts?.no_contact && !r.alerts.no_contact.seeded) || Boolean(r.alerts?.urgent && !r.alerts.urgent.seeded) },
 };
 
-// The queue's tabs. Active is the worklist; time-barred and left are kept out
-// of it and out of every count on it.
+// The queue's tabs. Groups is every chat the player is still in; left ones
+// are kept out of it and out of every count on it.
 export const TABS = [
-  { key: 'active', label: 'Active', test: (r) => !r.flags.barred && !r.flags.left, states: ['waiting', 'unhappy', 'no_contact', 'ignored', 'ok'] },
-  { key: 'barred', label: 'Time-barred', test: (r) => r.flags.barred && !r.flags.left, states: [] },
+  { key: 'active', label: 'Groups', test: (r) => !r.flags.left, states: ['waiting', 'unhappy', 'no_contact', 'ignored', 'ok'] },
   { key: 'left', label: 'Left group', test: (r) => r.flags.left, states: [] },
 ];
 export const TAB = Object.fromEntries(TABS.map((t) => [t.key, t]));

@@ -17,10 +17,8 @@ whatever the kind, and never two in a row for the same silence. Alerts name
 the player and the chat, not a host: no chat has one.
 
 Everything else lives on the dashboard: players waiting on a reply, players not
-answering our outreach, players who left. A chat with no message either way
-for 20 days is time-barred: out of the worklist, off the alerts, in its own
-tab. A negative mood older than seven days (`UNHAPPY_MAX_AGE_DAYS`) no longer
-marks a player unhappy.
+answering our outreach, players who left. A negative mood older than seven
+days (`UNHAPPY_MAX_AGE_DAYS`) no longer marks a player unhappy.
 
 Posting is paced at one message a second, honours `Retry-After`, and is capped
 per run (`MAX_ALERTS_PER_RUN`, default 15) with one overflow line pointing at
@@ -38,13 +36,14 @@ queue. The distribution of days since we last spoke, mood, state, reply-time
 distribution and a daily trend of the three actionable counts, one small chart
 each on its own scale.
 
-**Queue.** Three tabs: Active (the worklist), Time-barred, Left group. The
+**Queue.** Two tabs: Groups (every chat the player is still in) and Left
+group. The
 Filters control opens one menu with every group (state, mood, days since we
 spoke, reply time, history source, tier, alerted), each choice carrying its
 count; any number of choices can be ticked, values within a group combine
 with or, groups with and. Filters are URL parameters, so any view is a link:
-`/queue?f=no_contact`, `/queue?mood=at_risk,negative`, `/queue?tab=barred`,
-`/queue?chat=<telegram id>`. The Active tab opens on Needs action.
+`/queue?f=no_contact`, `/queue?mood=at_risk,negative`, `/queue?tab=left`,
+`/queue?chat=<telegram id>`. Groups opens on Needs action.
 Clicking a row opens the player: when each side last spoke and who replied,
 reply times, sentiment with the quote it was read from, alerts posted, and the
 recent conversation read live from Entergram (never stored). Export PDF
@@ -53,16 +52,25 @@ server side in the dashboard's own style with the Oxanium weights in
 `public/fonts`. Entergram has no per-chat URL, so the Entergram button copies
 the chat name and opens the app for one paste into its search.
 
-**Activity.** Every scan with its mode, duration and outcome; every alert
-posted; consecutive failures; staff-shaped senders missing from the team table.
+**Logs.** For the monitoring whitelist only (`MONITORING_EMAILS`, by default
+Anri and Shane): Access (every sign-in and every refused attempt, with device
+and address), Sessions (open sessions, each revocable), Blocked (the
+dashboard-managed block-list; blocking an address ends its sessions), Scans
+(every run with its mode, duration and outcome, plus staff-shaped senders
+missing from the team table) and Alerts (every alert posted). The Logs entry
+is only shown to whitelisted accounts and every route behind it refuses
+everyone else.
 
 ## How a chat is read
 
 **Scope.** Player chats are groups of 25 or fewer whose title matches
-"<player> x Thrill" in either ordering. Affiliate rooms, partnerships,
-channels and community groups are excluded. The workspace list carries one
-entry per connected account that knows a group, so entries are collapsed onto
-the Telegram id before anything else happens.
+"<player> x Thrill" in either ordering, that the team's shared account
+(@Thrill_VIP_Ops, `SCOPE_ACCOUNTS`) is a member of. That is the set the team
+sees in Entergram; the workspace API also returns every group any member's
+personal account was ever in, most of them long dead, and those are left out.
+Affiliate rooms, partnerships, channels and community groups are excluded. The
+workspace list carries one entry per connected account that knows a group, so
+entries are collapsed onto the Telegram id before anything else happens.
 
 **Who spoke.** `isOut` is relative to the account making the request and
 cannot tell staff from player. Every sender resolves against
@@ -179,7 +187,7 @@ keys; keys from the previous version expire on their own.
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Set by the Upstash integration |
 | `QUIET_DAYS` | Default 7 |
 | `UNANSWERED_HOURS` | Default 12 |
-| `TIME_BARRED_DAYS` | Default 20 |
+| `SCOPE_ACCOUNTS` | Connected-account usernames whose groups are in scope, default the shared accounts in `config/team.json` |
 | `EVENTS_PAGES_PER_TICK` / `EVENTS_BACKFILL_DAYS` | Event stream pages per tick and how far the first run backfills, default 25 / 10 |
 | `URGENT_ALERTS` | `on` (default) or `off` |
 | `ALERT_COOLDOWN_HOURS` | One alert per conversation per this many hours, default 24 |
@@ -198,6 +206,8 @@ keys; keys from the previous version expire on their own.
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | SSO |
 | `NEXTAUTH_SECRET` / `NEXTAUTH_URL` | SSO session signing and callback base |
 | `ALLOWED_HD` | Default paradym.io |
+| `MONITORING_EMAILS` | Accounts that see Logs and can revoke sessions or block accounts, default `anri.akhaladze@paradym.io,shane.austin@paradym.io` |
+| `BLOCKED_EMAILS` | Addresses refused at sign-in even on the domain, in addition to the list managed under Logs |
 
 ## Team table
 
