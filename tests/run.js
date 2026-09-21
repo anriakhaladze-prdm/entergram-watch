@@ -292,12 +292,18 @@ await t('ordering puts urgent first, then the freshest silences', () => {
   eq(orderAlerts([a, b, c]).map((x) => x.row.noContactDays ?? 'u').join(','), 'u,7.1,30');
 });
 await t('alert text names the player, both silences and the dashboard link, and no host', () => {
-  const r = derive(chat({ lastMessageDate: ago(8) }), factsOf([msg(8, COLTON), msg(9, PLAYER)]), { custom: { tier: 'diamond_1' } });
+  const r = derive(chat({ lastMessageDate: ago(8) }), factsOf([msg(8, COLTON), msg(9, PLAYER)]), { custom: { tier: 'diamond_1', accountStatus: 'active' } });
   const text = formatAlert('no_contact', r, { env: { DASHBOARD_URL: 'https://x.test/' } });
   ok(text.includes('7 days without contact'), text); ok(text.includes('testplayer'), text); ok(text.includes('Diamond I'), text);
+  ok(text.includes('· ACTIVE'), text);
   ok(!text.includes('Host'), text); ok(text.includes('we last spoke 8d ago (Colton)'), text); ok(text.includes('player last spoke 9d ago'), text);
   ok(text.includes('https://x.test/queue?chat=-5000000001'), text);
   eq(prettyTier('emerald_3'), 'Emerald III');
+});
+await t('player profile custom fields are carried into dashboard rows', () => {
+  const r = derive(chat(), factsOf([msg(1, PLAYER)]), { custom: { tier: 'emerald_2', accountStatus: 'self_excluded', selfExcludedUntil: '2026-10-01T00:00:00Z', favouriteGames: 'Blackjack', favouriteProviders: ['evolution_gaming'], typicalBetUsd: 25, signupDate: '2025-01-01T00:00:00Z', sportsbook: true, originals: true, slots: false, liveCasino: true } });
+  eq(r.accountStatus, 'self_excluded'); eq(r.typicalBetUsd, 25); eq(r.favouriteGames, 'Blackjack');
+  eq(r.favouriteProviders.join(','), 'evolution_gaming'); eq(r.sportsbook, true); eq(r.liveCasino, true); eq(r.slots, false);
 });
 
 // --- sentiment ---------------------------------------------------------------------

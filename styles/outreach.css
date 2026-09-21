@@ -201,6 +201,24 @@
 .ow-histo-bar[data-tone='yellow'][data-on='true'] { background: var(--color-badge-yellow); }
 .ow-right { text-align: right; width: 100%; display: inline-block; }
 .ow-small { font-size: 11px; font-weight: 500; }
+.ow-player-cell, .ow-profile-cell { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ow-player-name, .ow-profile-main, .ow-profile-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ow-player-name { color: var(--color-foreground-primary); font-weight: 700; }
+.ow-player-badges { display: flex; align-items: center; gap: 5px; min-height: 16px; }
+.ow-tier, .ow-account { display: inline-flex; align-items: center; width: fit-content; padding: 2px 7px; border-radius: 999px; font-size: 10px; line-height: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: .025em; }
+.ow-tier-base { color: var(--color-foreground-muted-1); background: color-mix(in oklab, var(--color-base-8) 12%, transparent); }
+.ow-tier-bronze { color: #d89258; background: color-mix(in oklab, #b66a2c 17%, transparent); }
+.ow-tier-silver { color: #cbd5e1; background: color-mix(in oklab, #94a3b8 17%, transparent); }
+.ow-tier-gold { color: #facc15; background: color-mix(in oklab, #eab308 16%, transparent); }
+.ow-tier-platinum { color: #67e8f9; background: color-mix(in oklab, #22d3ee 15%, transparent); }
+.ow-tier-emerald { color: #34d399; background: color-mix(in oklab, #10b981 16%, transparent); }
+.ow-tier-diamond { color: #a5b4fc; background: color-mix(in oklab, #818cf8 17%, transparent); }
+.ow-tier-obsidian { color: #e9d5ff; background: color-mix(in oklab, #9333ea 22%, transparent); }
+.ow-account-active { color: var(--color-badge-green); background: color-mix(in oklab, var(--color-badge-green) 12%, transparent); }
+.ow-account-frozen { color: var(--color-badge-red); background: color-mix(in oklab, var(--color-badge-red) 12%, transparent); }
+.ow-account-self_excluded { color: var(--color-badge-orange); background: color-mix(in oklab, var(--color-badge-orange) 13%, transparent); }
+.ow-profile-main { color: var(--color-foreground-text); font-weight: 650; }
+.ow-profile-sub { color: var(--color-foreground-muted-2); font-size: 11px; }
 .ow-warn { color: var(--color-badge-yellow); }
 .ow-grid-inline { padding-top: var(--spacing-8); }
 .ow-grid-inline .th-grid-scroll { max-height: none; }

@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import Icon from './Icon';
 import Badge from './Badge';
 import { STATE, MOODS, age, mins } from '../lib/states.js';
+import { accountStatusLabel, money, shortDate, tierLabel, tierTone } from '../lib/playerProfile.js';
 
 // The drill-in behind a row: what the scan knows about this player, and the
 // recent conversation read live from Entergram when the reader account can see
 // the group. Nothing here is stored; closing the drawer drops it.
 const when = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '–');
-const tier = (t) => String(t || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).replace(/\b(\d)\b/g, (d) => ['', 'I', 'II', 'III', 'IV', 'V'][Number(d)] || d);
 
 export default function PlayerDrawer({ row, onClose }) {
   const [conv, setConv] = useState(null);
@@ -48,7 +48,8 @@ export default function PlayerDrawer({ row, onClose }) {
               <div className="ow-drawer-name typ-heading-small">{row.playerUsername || row.player}</div>
               <div className="ow-drawer-sub">
                 <Badge tone={st.tone}>{st.label}</Badge>
-                {row.tier ? <Badge tone="blue">{tier(row.tier)}</Badge> : null}
+                {row.tier ? <span className={`ow-tier ow-tier-${tierTone(row.tier)}`}>{tierLabel(row.tier)}</span> : null}
+                {row.accountStatus ? <span className={`ow-account ow-account-${row.accountStatus}`}>{accountStatusLabel(row.accountStatus)}</span> : null}
                 {mood && mood.key !== 'neutral' ? <Badge tone={mood.tone}>{mood.label}</Badge> : null}
                 <span className="ow-sub typ-label-small">{row.title}</span>
               </div>
@@ -71,7 +72,14 @@ export default function PlayerDrawer({ row, onClose }) {
               {fact('Last message', row.lastMessageAt ? `${age(row.quietDays)} ago` : '–')}
               {fact('First reply', row.reply ? <>median {mins(row.reply.medianMins)}<span className="ow-sub"> · p90 {mins(row.reply.p90Mins)} · worst {mins(row.reply.worstMins)} · {row.reply.samples} exchanges</span></> : '–', 'ow-wrap')}
               {fact('Members', row.membersCount ?? '–')}
-              {fact('Tier', row.tier ? tier(row.tier) : '–')}
+              {fact('Tier', row.tier ? tierLabel(row.tier) : '–')}
+              {fact('Account status', accountStatusLabel(row.accountStatus) || '–')}
+              {fact('Self-excluded until', row.selfExcludedUntil ? shortDate(row.selfExcludedUntil) : '–')}
+              {fact('Signup date', shortDate(row.signupDate))}
+              {fact('Typical bet', row.typicalBetUsd != null ? money(row.typicalBetUsd) : '–')}
+              {fact('Products', [row.sportsbook && 'Sportsbook', row.originals && 'Originals', row.slots && 'Slots', row.liveCasino && 'Live casino'].filter(Boolean).join(', ') || '–')}
+              {fact('Favourite games', row.favouriteGames || '–', 'ow-wrap')}
+              {fact('Favourite providers', row.favouriteProviders?.length ? row.favouriteProviders.map((p) => p.replace(/_/g, ' ')).join(', ') : '–', 'ow-wrap')}
             </div>
 
             {row.staffSpeakers?.length ? (

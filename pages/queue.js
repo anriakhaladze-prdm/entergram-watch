@@ -8,18 +8,18 @@ import PlayerDrawer from '../components/PlayerDrawer';
 import { useSnapshot } from '../components/useSnapshot';
 import { parseFilters, matchRow, queueHref, SETS, TABS, TAB, tabOf, SILENCE_BUCKETS, REPLY_BUCKETS, HISTORY, GROUPS, moodOf, tierOf, silenceBucket, replyBucket, activeCount } from '../components/filters';
 import { STATES, STATE, MOODS, ACTIONABLE, age, mins } from '../lib/states.js';
+import { accountStatusLabel, money, shortDate, tierLabel, tierTone } from '../lib/playerProfile.js';
 
 // The worklist. Every filter is in the URL, so a tile on the overview, a
 // Slack alert and a host's own bookmark all open the same view.
 const COLS = [
-  { key: 'player', label: 'Player', w: 'minmax(180px, 1.2fr)', sort: 'player' },
-  { key: 'state', label: 'State', w: '150px', sort: 'severity' },
-  { key: 'we', label: 'We spoke', w: '110px', sort: 'staffQuiet', num: true },
-  { key: 'player_last', label: 'Player spoke', w: '136px', sort: 'playerQuiet', num: true },
-  { key: 'silent', label: 'Silent', w: '90px', sort: 'quiet', num: true },
-  { key: 'reply', label: 'Reply', w: '92px', sort: 'reply', num: true },
-  { key: 'mood', label: 'Mood', w: '100px', sort: 'mood' },
-  { key: 'detail', label: 'Detail', w: 'minmax(220px, 1.6fr)', sort: null },
+  { key: 'player', label: 'Player', w: 'minmax(220px, 1.15fr)', sort: 'player' },
+  { key: 'state', label: 'State', w: '118px', sort: 'severity' },
+  { key: 'we', label: 'We spoke', w: '88px', sort: 'staffQuiet', num: true },
+  { key: 'player_last', label: 'Player spoke', w: '104px', sort: 'playerQuiet', num: true },
+  { key: 'reply', label: 'Reply', w: '76px', sort: 'reply', num: true },
+  { key: 'mood', label: 'Mood', w: '88px', sort: 'mood' },
+  { key: 'profile', label: 'Player profile', w: 'minmax(300px, 1.85fr)', sort: null },
 ];
 const ORDER = STATES.map((s) => s.key);
 const DEFAULT_F = ['actionable'];
@@ -186,14 +186,13 @@ export default function Queue() {
                   const mood = r.sentiment?.label;
                   return (
                     <div className="th-grid-row is-link" key={r.chatId} onClick={() => setParams({ chat: r.chatId })} role="link" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setParams({ chat: r.chatId }); }}>
-                      {cell(<>{r.playerUsername || r.player || r.title}{r.tier ? <span className="ow-sub ow-small"> · {String(r.tier).replace('_', ' ')}</span> : null}</>, 'ow-clip')}
+                      {cell(<span className="ow-player-cell"><span className="ow-player-name">{r.playerUsername || r.player || r.title}</span><span className="ow-player-badges">{r.tier ? <span className={`ow-tier ow-tier-${tierTone(r.tier)}`}>{tierLabel(r.tier)}</span> : null}{r.accountStatus && r.accountStatus !== 'active' ? <span className={`ow-account ow-account-${r.accountStatus}`}>{accountStatusLabel(r.accountStatus)}</span> : null}</span></span>)}
                       {cell(<Badge tone={st.tone}>{st.label}</Badge>)}
                       {cell(r.lastStaffAt ? age(r.staffQuietDays) : (r.noContactDays != null ? `${age(r.noContactDays)}+` : <span className="ow-muted">?</span>), `ow-nums${(r.noContactDays ?? 0) >= 7 ? ' ow-warn' : ''}`)}
                       {cell(r.lastPlayerAt ? age(r.playerQuietDays) : <span className="ow-muted">·</span>, `ow-nums${r.flags.waiting ? ' ow-stale' : ''}`)}
-                      {cell(age(r.quietDays), 'ow-nums ow-sub')}
                       {cell(r.reply ? mins(r.reply.medianMins) : <span className="ow-muted">·</span>, 'ow-nums ow-sub')}
                       {cell(mood && mood !== 'neutral' ? <span className={`ow-mood ow-mood-${mood}`}>{mood.replace('_', ' ')}</span> : <span className="ow-muted">–</span>)}
-                      {cell(r.signals?.[0] || <span className="ow-muted">–</span>, 'ow-sub ow-clip')}
+                      {cell(<span className="ow-profile-cell" title={[r.favouriteGames, (r.favouriteProviders || []).join(', ')].filter(Boolean).join(' · ')}><span className="ow-profile-main">{r.typicalBetUsd != null ? `${money(r.typicalBetUsd)} median` : 'No casino bets'}{r.sportsbook ? ' · Sportsbook' : ''}{r.originals ? ' · Originals' : ''}{r.slots ? ' · Slots' : ''}{r.liveCasino ? ' · Live' : ''}</span><span className="ow-profile-sub">{r.favouriteGames || (r.favouriteProviders || []).join(', ') || `Joined ${shortDate(r.signupDate)}`}</span></span>)}
                     </div>
                   );
                 })}
