@@ -197,7 +197,7 @@ export default function Queue() {
                     </div>
                   );
                 })}
-                {!shown.length ? <div className="th-grid-empty typ-label-medium">Nothing matches these filters.</div> : null}
+                {!shown.length ? <div className="th-grid-empty typ-label-medium">Nothing to show</div> : null}
               </div>
             </div>
           </div>

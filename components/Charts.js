@@ -95,22 +95,29 @@ function Spark({ label, tone, values, days, height }) {
   }, []);
   // Pixel coordinates on a fixed-height canvas: the line follows the panel's
   // width without ever scaling its stroke or text.
-  const W = width, H = height, PAD = 6, PAD_B = 20;
-  const max = Math.max(1, ...values);
+  // The scale follows the data, not zero: a count that moved from 229 to 223
+  // is a visible slope in the middle of the panel rather than a line pinned
+  // along the top edge.
+  const W = width, H = height, PAD = 6, PAD_T = 12, PAD_B = 20;
+  let lo = Math.min(...values), hi = Math.max(...values);
+  const pad = hi === lo ? Math.max(1, hi * 0.1) : (hi - lo) * 0.35;
+  lo -= pad; hi += pad;
   const x = (i) => PAD + (i * (W - 2 * PAD)) / Math.max(1, values.length - 1);
-  const y = (v) => PAD + (1 - v / max) * (H - PAD - PAD_B);
+  const y = (v) => PAD_T + (1 - (v - lo) / (hi - lo)) * (H - PAD_T - PAD_B);
   const last = values[values.length - 1], prev = values.length > 1 ? values[values.length - 2] : null;
   const delta = prev == null ? null : last - prev;
   return (
     <div className="ow-spark">
       <div className="ow-spark-head">
         <span className="ow-spark-label typ-label-small">{label}</span>
-        <span className="ow-spark-val typ-display-xsmall" style={{ color: T(tone) }}>{last}</span>
-        {delta ? <span className={`ow-spark-delta typ-label-small${delta > 0 ? ' is-up' : ' is-down'}`}>{delta > 0 ? '+' : ''}{delta}</span> : null}
+        <span className="ow-spark-num">
+          <span className="ow-spark-val typ-display-xsmall" style={{ color: T(tone) }}>{last}</span>
+          {delta ? <span className={`ow-spark-delta typ-label-small${delta > 0 ? ' is-up' : ' is-down'}`}>{delta > 0 ? '+' : ''}{delta}</span> : null}
+        </span>
       </div>
       <div ref={box} className="ow-trend-box" style={{ height }}>
         <svg width={W} height={H} className="ow-trend" role="img" aria-label={label}>
-          <line x1={PAD} x2={W - PAD} y1={y(0)} y2={y(0)} stroke="var(--color-list-divider)" strokeWidth="1" strokeOpacity="0.5" />
+          <line x1={PAD} x2={W - PAD} y1={H - PAD_B} y2={H - PAD_B} stroke="var(--color-list-divider)" strokeWidth="1" strokeOpacity="0.5" />
           <polyline fill="none" stroke={T(tone)} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" points={values.map((v, i) => `${x(i)},${y(v)}`).join(' ')} />
           <circle cx={x(values.length - 1)} cy={y(last)} r="3.5" fill={T(tone)} stroke="var(--color-background-secondary)" strokeWidth="2" />
           <text x={PAD} y={H - 5} fill="var(--color-foreground-muted-3)" fontSize="10" fontWeight="600">{days[0]}</text>

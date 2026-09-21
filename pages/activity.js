@@ -76,7 +76,7 @@ export default function Activity() {
                   {cell(a.dryRun ? 'dry run' : a.ts ? 'sent' : 'logged', 'ow-sub')}
                 </div>
               ))}
-              {!alerts.length ? <div className="th-grid-empty typ-label-medium">No alerts have been posted since the restart.</div> : null}
+              {!alerts.length ? <div className="th-grid-empty typ-label-medium">No alerts posted</div> : null}
             </div>
           </div>
         </div>
@@ -105,7 +105,7 @@ export default function Activity() {
                     : r.error, r.ok ? 'ow-sub ow-clip' : 'ow-stale ow-clip')}
                 </div>
               ))}
-              {!runs.length ? <div className="th-grid-empty typ-label-medium">No scans recorded yet.</div> : null}
+              {!runs.length ? <div className="th-grid-empty typ-label-medium">No scans recorded</div> : null}
             </div>
           </div>
         </div>

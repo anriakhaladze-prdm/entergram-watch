@@ -147,9 +147,10 @@
 .ow-trend-box { width: 100%; overflow: hidden; }
 .ow-trend { display: block; }
 .ow-sparks { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--spacing-16); }
-.ow-spark { min-width: 0; padding: var(--spacing-12) var(--spacing-14); border-radius: var(--radius-16); background: var(--color-surface-2, var(--color-control-secondary)); }
-.ow-spark-head { display: flex; align-items: baseline; gap: var(--spacing-10); padding-bottom: var(--spacing-8); }
-.ow-spark-label { color: var(--color-foreground-muted-1); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ow-spark { min-width: 0; padding: var(--spacing-16) var(--spacing-16) var(--spacing-12); border-radius: var(--radius-16); background: var(--color-surface-2, var(--color-control-secondary)); }
+.ow-spark-head { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-12); padding: var(--spacing-4) 0 var(--spacing-14); }
+.ow-spark-label { color: var(--color-foreground-muted-1); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; flex: 1; min-width: 0; white-space: nowrap; }
+.ow-spark-num { display: inline-flex; align-items: center; gap: var(--spacing-8); }
 .ow-spark-val { font-weight: 800; }
 .ow-spark-delta { color: var(--color-foreground-muted-3); font-weight: 700; }
 .ow-spark-delta.is-up { color: var(--color-badge-orange); }
@@ -235,6 +236,9 @@
 .ow-tabs { flex: 0 0 auto; padding: 0; margin-left: calc(-1 * var(--spacing-12)); }
 .ow-tabs .th-pill { border: none; cursor: pointer; }
 .ow-tabs .th-pill .ow-nums { font-weight: 600; opacity: .7; margin-left: 2px; }
+
+/* An empty body is one strip across every column, not a note in the first. */
+.th-grid-body > .th-grid-empty { grid-column: 1 / -1; }
 
 /* First column: header and cells on the same 14px inset as every other column.
    The system gives the sticky header cell 24px outside and 24px inside, which
