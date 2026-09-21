@@ -207,6 +207,7 @@
 .ow-player-name { min-width: 0; color: var(--color-foreground-primary); font-weight: 700; }
 .ow-player-badges { display: flex; flex: 0 0 auto; align-items: center; gap: 5px; }
 .ow-tier, .ow-account { display: inline-flex; align-items: center; width: fit-content; padding: 2px 7px; border-radius: 999px; font-size: 10px; line-height: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: .025em; }
+.th-badge, .ow-tier, .ow-account { white-space: nowrap; }
 .ow-tier-base { color: var(--color-foreground-muted-1); background: color-mix(in oklab, var(--color-base-8) 12%, transparent); }
 .ow-tier-bronze { color: #d89258; background: color-mix(in oklab, #b66a2c 17%, transparent); }
 .ow-tier-silver { color: #cbd5e1; background: color-mix(in oklab, #94a3b8 17%, transparent); }

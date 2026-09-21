@@ -14,12 +14,12 @@ import { accountStatusLabel, money, shortDate, tierLabel, tierTone } from '../li
 // Slack alert and a host's own bookmark all open the same view.
 const COLS = [
   { key: 'player', label: 'Player', w: 'minmax(220px, 1.15fr)', sort: 'player' },
-  { key: 'state', label: 'State', w: '118px', sort: 'severity' },
+  { key: 'state', label: 'State', w: '136px', sort: 'severity' },
   { key: 'we', label: 'We spoke', w: '88px', sort: 'staffQuiet', num: true },
   { key: 'player_last', label: 'Player spoke', w: '104px', sort: 'playerQuiet', num: true },
   { key: 'reply', label: 'Reply', w: '76px', sort: 'reply', num: true },
   { key: 'mood', label: 'Mood', w: '88px', sort: 'mood' },
-  { key: 'profile', label: 'Player profile', w: 'minmax(300px, 1.85fr)', sort: null },
+  { key: 'profile', label: 'Player profile', w: 'minmax(282px, 1.85fr)', sort: null },
 ];
 const ORDER = STATES.map((s) => s.key);
 const DEFAULT_F = ['actionable'];
