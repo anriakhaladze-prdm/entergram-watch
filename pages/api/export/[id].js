@@ -25,7 +25,8 @@ export default async function handler(req, res) {
     const pdf = await renderPlayerPdf(row, conversation);
     res.setHeader('content-type', 'application/pdf');
     res.setHeader('content-length', String(pdf.length));
-    res.setHeader('content-disposition', `attachment; filename="${pdfFilename(row)}"`);
+    const name = pdfFilename(row);
+    res.setHeader('content-disposition', `attachment; filename="${name.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, '')}"; filename*=UTF-8''${encodeURIComponent(name)}`);
     res.setHeader('cache-control', 'private, no-store');
     res.status(200).end(pdf);
   } catch (e) {
