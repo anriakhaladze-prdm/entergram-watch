@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Children, cloneElement, isValidElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import Badge from '../components/Badge';
 import Icon from '../components/Icon';
@@ -28,14 +28,19 @@ const TABS = [
   { key: 'excluded', label: 'Excluded' },
 ];
 const cell = (c, cls = '') => <div className="th-grid-cell"><div><span className={`th-grid-cell-inner typ-label-medium ${cls}`}>{c}</span></div></div>;
+// On a phone each row stacks into a card of label and value pairs, so every
+// cell carries its column's label.
+const labelled = (cols) => (row) => (isValidElement(row) && String(row.props.className || '').includes('th-grid-row')
+  ? cloneElement(row, undefined, Children.map(row.props.children, (c, i) => (isValidElement(c) ? cloneElement(c, { 'data-label': cols[i]?.label || '' }) : c)))
+  : row);
 const Grid = ({ cols, children, empty, count }) => (
-  <div className="th-grid-scroll">
+  <div className="th-grid-scroll ow-stack">
     <div className="th-grid" style={{ gridTemplateColumns: cols.map((c) => c.w).join(' ') }}>
       <div className="th-grid-headgroup"><div className="th-grid-headrow">
         {cols.map((c) => <div key={c.label} className="th-grid-headcell"><div><span className={`th-grid-headlabel${c.num ? ' ow-right' : ''}`}>{c.label}</span></div></div>)}
       </div></div>
       <div className="th-grid-body">
-        {children}
+        {Children.map(children, labelled(cols))}
         {!count ? <div className="th-grid-empty typ-label-medium">{empty}</div> : null}
       </div>
     </div>

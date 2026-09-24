@@ -36,7 +36,9 @@ export default function Menu({ trigger, items, open, onClose, align = 'left', se
     if (list.current) list.current.style.maxHeight = `${Math.max(120, (flip ? above : below) - chrome)}px`;
     el.style.top = `${flip ? Math.max(EDGE, r.top - GAP - el.offsetHeight) : r.bottom + GAP}px`;
     t.setAttribute('data-state', 'open');
-    if (field.current) setTimeout(() => field.current && field.current.focus(), 0);
+    // Not on touch: the keyboard would cover the list the find box is there
+    // to narrow.
+    if (field.current && window.matchMedia('(pointer: fine)').matches) setTimeout(() => field.current && field.current.focus(), 0);
     return () => t.removeAttribute('data-state');
   }, [open, align, trigger]);
 
@@ -50,19 +52,29 @@ export default function Menu({ trigger, items, open, onClose, align = 'left', se
     };
     // Scroll does not bubble and the card is the scroller, so capture phase.
     // A wheel inside the menu is the menu scrolling, not the page moving.
-    const scroll = (e) => { const t = e && e.target; if (t && t.nodeType && host.current?.contains(t)) return; onClose(); };
+    const scroll = (e) => {
+      const t = e && e.target;
+      if (t && t.nodeType && host.current?.contains(t)) return;
+      // Typing in the find box can make a phone nudge the page to keep the
+      // field in view. That is not the reader moving away from the menu.
+      if (host.current?.contains(document.activeElement)) return;
+      onClose();
+    };
+    // A phone keyboard opening changes the height, not the width.
+    const width = window.innerWidth;
+    const resize = () => { if (window.innerWidth !== width) onClose(); };
     const id = setTimeout(() => {
-      document.addEventListener('mousedown', away);
+      document.addEventListener('pointerdown', away);
       document.addEventListener('keydown', key);
       window.addEventListener('scroll', scroll, true);
-      window.addEventListener('resize', scroll);
+      window.addEventListener('resize', resize);
     }, 0);
     return () => {
       clearTimeout(id);
-      document.removeEventListener('mousedown', away);
+      document.removeEventListener('pointerdown', away);
       document.removeEventListener('keydown', key);
       window.removeEventListener('scroll', scroll, true);
-      window.removeEventListener('resize', scroll);
+      window.removeEventListener('resize', resize);
     };
   }, [open, onClose, trigger]);
 

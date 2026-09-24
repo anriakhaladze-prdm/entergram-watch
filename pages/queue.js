@@ -40,10 +40,19 @@ export default function Queue() {
   const [q, setQ] = useState(fl.q);
   useEffect(() => { setQ(fl.q); }, [fl.q]);
 
-  const setParams = (patch) => {
+  const setParams = (patch, { push = false } = {}) => {
     const next = { ...router.query, ...patch };
     for (const k of Object.keys(next)) if (next[k] == null || next[k] === '' || (Array.isArray(next[k]) && !next[k].length)) delete next[k];
-    router.replace(queueHref(next), undefined, { shallow: true });
+    router[push ? 'push' : 'replace'](queueHref(next), undefined, { shallow: true });
+  };
+  // Opening a player is a history entry, so the phone's back gesture closes
+  // the drawer instead of leaving the queue. A drawer opened from a link
+  // (a Slack alert, a bookmark) has nothing behind it, so it closes in place.
+  const pushedChat = useRef(false);
+  useEffect(() => { if (!fl.chat) pushedChat.current = false; }, [fl.chat]);
+  const openChat = (id) => { pushedChat.current = true; setParams({ chat: id }, { push: true }); };
+  const closeChat = () => {
+    if (pushedChat.current) { pushedChat.current = false; router.back(); } else setParams({ chat: null });
   };
   // Unticking the last state on the Active tab leaves f=all rather than
   // removing it: with no filter keys at all the Needs action default returns.
@@ -83,6 +92,10 @@ export default function Queue() {
   const [menuOpen, setMenuOpen] = useState(false);
   const filterBtn = useRef(null);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
+  // Phones have no header row to sort from, so the same choices sit in a menu.
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortBtn = useRef(null);
+  const closeSort = useCallback(() => setSortOpen(false), []);
   const withCount = (label, n) => `${label}  (${(n || 0).toLocaleString()})`;
   const menuItems = (() => {
     const items = [{ label: 'Clear all', keepOpen: true, alwaysShow: true, onClick: clearAll }, '-'];
@@ -130,8 +143,37 @@ export default function Queue() {
   }, [rows, fl, tab, active, q, sort]);
 
   const open = openRow;
-  const setTab = (k) => { setMenuOpen(false); setParams({ tab: k === 'active' ? null : k, f: null, ...Object.fromEntries(GROUPS.map((g) => [g, null])), alerted: null, chat: null }); };
+  const setTab = (k) => { setMenuOpen(false); setSortOpen(false); setParams({ tab: k === 'active' ? null : k, f: null, ...Object.fromEntries(GROUPS.map((g) => [g, null])), alerted: null, chat: null }); };
   const sortBy = (c) => c && setSort((st) => ({ col: c, dir: st.col === c && st.dir === 'asc' ? 'desc' : 'asc' }));
+  const sortCols = COLS.filter((c) => c.sort);
+  const sortItems = [
+    { header: true, label: 'Sort by' },
+    ...sortCols.map((c) => ({ label: c.label, selected: sort.col === c.sort, onClick: () => setSort((st) => ({ col: c.sort, dir: st.col === c.sort ? st.dir : 'asc' })) })),
+    '-', { header: true, label: 'Order' },
+    { label: 'Ascending', selected: sort.dir === 'asc', onClick: () => setSort((st) => ({ ...st, dir: 'asc' })) },
+    { label: 'Descending', selected: sort.dir === 'desc', onClick: () => setSort((st) => ({ ...st, dir: 'desc' })) },
+  ];
+  // One set of values, drawn twice: the grid on wider screens, a card per
+  // player on phones.
+  const view = (r) => {
+    const st = STATE[r.state] || { label: r.state, tone: 'gray' };
+    const mood = r.sentiment?.label;
+    const profileLoaded = Boolean(r.accountStatus || r.tier || r.signupDate || r.favouriteGames || r.typicalBetUsd != null);
+    return {
+      st,
+      name: r.playerUsername || r.player || r.title,
+      tags: <>{r.tier ? <span className={`ow-tier ow-tier-${tierTone(r.tier)}`}>{tierLabel(r.tier)}</span> : null}{r.accountStatus ? <span className={`ow-account ow-account-${r.accountStatus}`}>{accountStatusLabel(r.accountStatus)}</span> : null}</>,
+      we: r.lastStaffAt ? age(r.staffQuietDays) : (r.noContactDays != null ? `${age(r.noContactDays)}+` : <span className="ow-muted">?</span>),
+      weCls: (r.noContactDays ?? 0) >= 7 ? ' ow-warn' : '',
+      them: r.lastPlayerAt ? age(r.playerQuietDays) : <span className="ow-muted">·</span>,
+      themCls: r.flags.waiting ? ' ow-stale' : '',
+      reply: r.reply ? mins(r.reply.medianMins) : <span className="ow-muted">·</span>,
+      mood: mood && mood !== 'neutral' ? <span className={`ow-mood ow-mood-${mood}`}>{mood.replace('_', ' ')}</span> : <span className="ow-muted">–</span>,
+      profileTitle: [r.favouriteGames, (r.favouriteProviders || []).join(', ')].filter(Boolean).join(' · '),
+      profileMain: <span className={`ow-profile-main${profileLoaded ? '' : ' ow-profile-pending'}`}>{profileLoaded ? (r.typicalBetUsd != null ? `${money(r.typicalBetUsd)} median` : 'No casino bets') : 'Profile pending'}{r.sportsbook ? ' · Sportsbook' : ''}{r.originals ? ' · Originals' : ''}{r.slots ? ' · Slots' : ''}{r.liveCasino ? ' · Live' : ''}</span>,
+      profileSub: <span className="ow-profile-sub">{profileLoaded ? (r.favouriteGames || (r.favouriteProviders || []).join(', ') || `Joined ${shortDate(r.signupDate)}`) : 'Waiting for attribute refresh'}</span>,
+    };
+  };
   const cell = (content, cls = '') => <div className="th-grid-cell"><div><span className={`th-grid-cell-inner typ-label-medium ${cls}`}>{content}</span></div></div>;
   const status = <ScanStatus {...s} compact />;
 
@@ -147,6 +189,7 @@ export default function Queue() {
         ))}
       </div>
       <div className="th-toolbar-spacer" />
+      <div className="ow-tools">
       <div className="th-field th-field-search">
         <span className="th-field-body">
           <Icon name="search" size={12} />
@@ -158,7 +201,14 @@ export default function Queue() {
         <span className="th-pill-label typ-label-medium">{nActive ? `Filters (${nActive})` : 'Filters'}</span>
         <Icon name="caret" size={8} />
       </button>
+      <button type="button" ref={sortBtn} className="th-pill focusable ow-mobile-only" onClick={() => setSortOpen((v) => !v)} aria-haspopup="true" aria-expanded={sortOpen}>
+        <Icon name="sort" size={12} />
+        <span className="th-pill-label typ-label-medium">Sort</span>
+        <Icon name="caret" size={8} />
+      </button>
+      </div>
       <Menu trigger={filterBtn} items={menuItems} open={menuOpen} onClose={closeMenu} align="right" search="Find a filter…" />
+      <Menu trigger={sortBtn} items={sortItems} open={sortOpen} onClose={closeSort} align="right" />
     </>
   );
 
@@ -166,7 +216,7 @@ export default function Queue() {
     <Shell title="Queue" crumb="Queue" email={session?.user?.email} monitor={Boolean(session?.monitor)} status={status} toolbar={toolbar}>
       {error || !snap ? <Empty error={error} /> : (
         <>
-          <div className="th-grid-scroll">
+          <div className="th-grid-scroll ow-qgrid">
             <div className="th-grid" style={{ gridTemplateColumns: COLS.map((c) => c.w).join(' ') }}>
               <div className="th-grid-headgroup">
                 <div className="th-grid-headrow">
@@ -182,18 +232,16 @@ export default function Queue() {
               </div>
               <div className="th-grid-body">
                 {shown.map((r) => {
-                  const st = STATE[r.state] || { label: r.state, tone: 'gray' };
-                  const mood = r.sentiment?.label;
-                  const profileLoaded = Boolean(r.accountStatus || r.tier || r.signupDate || r.favouriteGames || r.typicalBetUsd != null);
+                  const v = view(r);
                   return (
-                    <div className="th-grid-row is-link" key={r.chatId} onClick={() => setParams({ chat: r.chatId })} role="link" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setParams({ chat: r.chatId }); }}>
-                      {cell(<span className="ow-player-cell"><span className="ow-player-name">{r.playerUsername || r.player || r.title}</span><span className="ow-player-badges">{r.tier ? <span className={`ow-tier ow-tier-${tierTone(r.tier)}`}>{tierLabel(r.tier)}</span> : null}{r.accountStatus ? <span className={`ow-account ow-account-${r.accountStatus}`}>{accountStatusLabel(r.accountStatus)}</span> : null}</span></span>)}
-                      {cell(<Badge tone={st.tone}>{st.label}</Badge>)}
-                      {cell(r.lastStaffAt ? age(r.staffQuietDays) : (r.noContactDays != null ? `${age(r.noContactDays)}+` : <span className="ow-muted">?</span>), `ow-nums${(r.noContactDays ?? 0) >= 7 ? ' ow-warn' : ''}`)}
-                      {cell(r.lastPlayerAt ? age(r.playerQuietDays) : <span className="ow-muted">·</span>, `ow-nums${r.flags.waiting ? ' ow-stale' : ''}`)}
-                      {cell(r.reply ? mins(r.reply.medianMins) : <span className="ow-muted">·</span>, 'ow-nums ow-sub')}
-                      {cell(mood && mood !== 'neutral' ? <span className={`ow-mood ow-mood-${mood}`}>{mood.replace('_', ' ')}</span> : <span className="ow-muted">–</span>)}
-                      {cell(<span className="ow-profile-cell" title={[r.favouriteGames, (r.favouriteProviders || []).join(', ')].filter(Boolean).join(' · ')}><span className={`ow-profile-main${profileLoaded ? '' : ' ow-profile-pending'}`}>{profileLoaded ? (r.typicalBetUsd != null ? `${money(r.typicalBetUsd)} median` : 'No casino bets') : 'Profile pending'}{r.sportsbook ? ' · Sportsbook' : ''}{r.originals ? ' · Originals' : ''}{r.slots ? ' · Slots' : ''}{r.liveCasino ? ' · Live' : ''}</span><span className="ow-profile-sub">{profileLoaded ? (r.favouriteGames || (r.favouriteProviders || []).join(', ') || `Joined ${shortDate(r.signupDate)}`) : 'Waiting for attribute refresh'}</span></span>)}
+                    <div className="th-grid-row is-link" key={r.chatId} onClick={() => openChat(r.chatId)} role="link" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') openChat(r.chatId); }}>
+                      {cell(<span className="ow-player-cell"><span className="ow-player-name">{v.name}</span><span className="ow-player-badges">{v.tags}</span></span>)}
+                      {cell(<Badge tone={v.st.tone}>{v.st.label}</Badge>)}
+                      {cell(v.we, `ow-nums${v.weCls}`)}
+                      {cell(v.them, `ow-nums${v.themCls}`)}
+                      {cell(v.reply, 'ow-nums ow-sub')}
+                      {cell(v.mood)}
+                      {cell(<span className="ow-profile-cell" title={v.profileTitle}>{v.profileMain}{v.profileSub}</span>)}
                     </div>
                   );
                 })}
@@ -201,7 +249,29 @@ export default function Queue() {
               </div>
             </div>
           </div>
-          <PlayerDrawer row={open} onClose={() => setParams({ chat: null })} />
+          <div className="ow-qlist">
+            {shown.map((r) => {
+              const v = view(r);
+              return (
+                <div className="ow-qcard focusable" key={r.chatId} onClick={() => openChat(r.chatId)} role="link" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') openChat(r.chatId); }}>
+                  <div className="ow-qcard-top">
+                    <span className="ow-qcard-name">{v.name}</span>
+                    <Badge tone={v.st.tone}>{v.st.label}</Badge>
+                  </div>
+                  {r.tier || r.accountStatus ? <div className="ow-qcard-tags">{v.tags}</div> : null}
+                  <div className="ow-qcard-facts">
+                    <div className="ow-qfact"><span className="ow-qfact-k">We spoke</span><span className={`ow-qfact-v ow-nums${v.weCls}`}>{v.we}</span></div>
+                    <div className="ow-qfact"><span className="ow-qfact-k">Player spoke</span><span className={`ow-qfact-v ow-nums${v.themCls}`}>{v.them}</span></div>
+                    <div className="ow-qfact"><span className="ow-qfact-k">Reply</span><span className="ow-qfact-v ow-nums ow-sub">{v.reply}</span></div>
+                    <div className="ow-qfact"><span className="ow-qfact-k">Mood</span><span className="ow-qfact-v">{v.mood}</span></div>
+                  </div>
+                  <div className="ow-profile-cell ow-qcard-profile">{v.profileMain}{v.profileSub}</div>
+                </div>
+              );
+            })}
+            {!shown.length ? <div className="th-grid-empty typ-label-medium">Nothing to show</div> : null}
+          </div>
+          <PlayerDrawer row={open} onClose={closeChat} />
         </>
       )}
     </Shell>

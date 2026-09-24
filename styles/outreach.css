@@ -86,7 +86,9 @@
    colour is never the only thing carrying identity. */
 .th-charts, .ow-charts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  /* min() so a phone narrower than one track gets one full-width column
+     rather than a 340px track overflowing the card. */
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
   gap: var(--spacing-12);
   padding-top: var(--spacing-12);
 }
@@ -232,6 +234,10 @@
 .ow-drawer { width: min(640px, 100vw); }
 .ow-drawer-title { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: var(--spacing-8); }
 .ow-drawer-name { color: var(--color-foreground-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The descender trap again: the heading's box is trimmed to cap height, so
+   the clip has to reach below it or "cryptokingz" loses its tails. Padding
+   widens the clip, the matching negative margin keeps the layout where it was. */
+.ow-drawer-name { padding-bottom: 0.3em; margin-bottom: -0.3em; }
 .ow-drawer-sub { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-8); color: var(--color-foreground-muted-2); }
 .ow-drawer-acts { display: flex; flex-wrap: wrap; gap: var(--spacing-8); padding-bottom: var(--spacing-16); }
 .ow-drawer-acts .th-pill { text-decoration: none; }
@@ -285,3 +291,286 @@
 .ow-logs-block .th-grid-scroll { margin-inline: 0; }
 .ow-modal-text { margin: 0; color: var(--color-foreground-text); overflow-wrap: anywhere; }
 .ow-modal-acts { display: flex; justify-content: flex-end; gap: var(--spacing-8); margin-top: var(--spacing-24); }
+
+
+/* ---- toolbar: the controls wrap as one group ------------------------------
+   The tab strip, then the search and its pills. When the card is too narrow
+   for both on one line the group drops beneath the tabs as a unit, instead of
+   the search collapsing to nothing and the pills running off the card. */
+.th-toolbar { flex-wrap: wrap; row-gap: var(--spacing-12); }
+.th-toolbar > .ow-tabs { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+.ow-tools { display: flex; align-items: center; gap: var(--spacing-12); min-width: 0; }
+.ow-tools .th-field-search { width: 268px; flex: 0 1 268px; min-width: 180px; }
+.ow-mobile-only { display: none; }
+
+/* ---- phone: mobile header, menu drawer, card list -------------------------- */
+.ow-mnav { display: none; }
+.ow-qlist { display: none; }
+
+.ow-scan-btn:disabled { cursor: default; }
+.ow-scan-btn-live  { color: var(--color-badge-green); }
+.ow-scan-btn-error { color: var(--color-badge-red); }
+.ow-scan-btn-busy  { color: var(--color-badge-yellow); }
+.ow-scan-btn .ow-spin {
+  width: 16px;
+  height: 16px;
+  border-color: color-mix(in oklab, currentColor 30%, transparent);
+  border-top-color: currentColor;
+}
+
+@media (max-width: 767px) {
+  .th-root { -webkit-tap-highlight-color: transparent; }
+
+  /* The rail's job moves to the drawer. Hidden rather than parked off-screen,
+     so its links are not in the tab order behind the page. */
+  .th-rail { display: none; }
+
+  .th-card { padding-top: var(--spacing-12); padding-bottom: 0; }
+  .th-mobile-header { padding: 0 var(--spacing-16) var(--spacing-16); }
+
+  /* Menu drawer. Same field as the desktop rail (the darkest value, no panel
+     of its own), sliding over the page with the system's mobile scrim. */
+  .ow-mnav {
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    z-index: 60;
+    display: flex;
+    width: min(300px, 86vw);
+    flex-direction: column;
+    gap: var(--spacing-24);
+    padding: var(--spacing-12) var(--spacing-16) var(--spacing-24);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--color-background-primary);
+    transform: translate3d(-100%, 0, 0);
+    visibility: hidden;
+    transition: transform var(--dur-house) var(--ease-in-out), visibility 0s linear var(--dur-house);
+  }
+  .th-root[data-nav='open'] .ow-mnav {
+    transform: translate3d(0, 0, 0);
+    visibility: visible;
+    transition: transform var(--dur-house) var(--ease-in-out), visibility 0s;
+  }
+  .ow-mnav-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-left: var(--spacing-8);
+    color: var(--color-foreground-primary);
+  }
+  .ow-mnav-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-8);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .ow-mnav-link {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-14);
+    padding: var(--spacing-4);
+    border-radius: var(--radius-16);
+    color: var(--color-foreground-muted-1);
+    text-decoration: none;
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    transition: color var(--dur-house) var(--ease-in-out);
+  }
+  .ow-mnav-link:focus-visible { outline-color: var(--color-foreground-primary); }
+  .ow-mnav-label { font-weight: 800; text-transform: uppercase; }
+  /* The rail's triple-encoded selection: 6% fill, radius bloom, colour. */
+  .ow-mnav-link[aria-current='page'] .th-nav-tile {
+    background: var(--accent-fill);
+    border-radius: var(--radius-14);
+    color: var(--color-foreground-selected-secondary);
+  }
+  .ow-mnav-link[aria-current='page'] .ow-mnav-label { color: var(--color-surface-selected-primary); }
+
+  .ow-mnav-block {
+    padding: var(--spacing-16);
+    border-radius: var(--radius-16);
+    background: var(--color-background-secondary);
+  }
+  .ow-scan.ow-scan-stack {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--spacing-12) var(--spacing-8);
+    margin: 0;
+  }
+  .ow-scan.ow-scan-stack .th-status { display: inline-flex; grid-column: 1 / -1; justify-self: start; }
+  .ow-scan-stack .th-pill { padding-inline: var(--spacing-12); }
+
+  .ow-mnav-foot {
+    display: flex;
+    margin-top: auto;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-14);
+    padding: var(--spacing-20) var(--spacing-8) 0;
+    border-top: 1px solid color-mix(in oklab, var(--color-base-8) 8%, transparent);
+  }
+  .ow-mnav-email { color: var(--color-foreground-muted-1); overflow-wrap: anywhere; }
+
+  /* Toolbar: tabs as a strip that scrolls to the screen edge, then the search
+     with its pills on one line. */
+  .th-toolbar { padding-bottom: var(--spacing-16); }
+  .th-toolbar > .ow-tabs {
+    flex: 1 0 100%;
+    max-width: none;
+    margin-inline: calc(-1 * var(--spacing-16));
+    padding: var(--spacing-4) var(--spacing-16) var(--spacing-4) var(--spacing-4);
+    gap: var(--spacing-4);
+  }
+  .th-toolbar > .ow-tabs .th-pill { padding-inline: var(--spacing-12); }
+  .th-toolbar > .ow-tools { flex: 1 0 100%; flex-wrap: wrap; gap: var(--spacing-8); }
+  .ow-tools .th-field-search { width: auto; flex: 1 0 100%; min-width: 0; max-width: none; }
+  .ow-tools .th-pill { flex: 1 1 0; padding-inline: var(--spacing-14); }
+  .ow-mobile-only { display: flex; }
+
+  /* iOS zooms the page into any field under 16px when it takes focus. */
+  .th-field-body input,
+  .th-field-body input::placeholder,
+  .th-menu-search-input { font-size: 16px; }
+
+  /* Overview */
+  .ow-page { padding: 0 var(--spacing-16) var(--spacing-24); }
+  .th-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-8); padding-top: var(--spacing-4); }
+  .th-stat { min-height: 0; padding: var(--spacing-12) var(--spacing-14); }
+  .ow-charts { gap: var(--spacing-8); padding-top: var(--spacing-8); }
+  .ow-histo { gap: var(--spacing-4); }
+  .ow-histo-label { font-size: 10px; }
+
+  /* Queue: a card per player in place of the seven-column grid. */
+  .ow-qgrid { display: none; }
+  .ow-qlist {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-8);
+    padding: 0 var(--spacing-16) var(--spacing-24);
+  }
+  .ow-qcard {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-12);
+    padding: var(--spacing-14) var(--spacing-16);
+    border-radius: var(--radius-16);
+    background: var(--color-list-background-secondary);
+    cursor: pointer;
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    transition: background-color var(--dur-fill) var(--ease-in-out);
+  }
+  .ow-qcard:focus-visible { outline-color: var(--color-foreground-primary); }
+  .ow-qcard:active { background: color-mix(in oklab, var(--color-base-8) 8%, var(--color-list-background-secondary)); }
+  .ow-qcard-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--spacing-12); }
+  .ow-qcard-name {
+    min-width: 0;
+    padding-top: 1px;
+    color: var(--color-foreground-primary);
+    font-size: 15px;
+    line-height: 20px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+  .ow-qcard-top .th-badge { flex-shrink: 0; }
+  .ow-qcard-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: calc(-1 * var(--spacing-4)); }
+  .ow-qcard-facts { display: grid; grid-template-columns: repeat(4, auto); justify-content: space-between; gap: var(--spacing-12); }
+  .ow-qfact { display: flex; min-width: 0; flex-direction: column; gap: var(--spacing-4); }
+  .ow-qfact-k {
+    color: var(--color-foreground-muted-3);
+    font-size: 10px;
+    line-height: 14px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .ow-qfact .ow-qfact-v { color: var(--color-foreground-text); font-size: 13px; line-height: 18px; font-weight: 700; text-align: left; }
+  .ow-qfact .ow-qfact-v.ow-warn { color: var(--color-badge-yellow); }
+  .ow-qfact .ow-qfact-v.ow-stale { color: var(--color-badge-red); }
+  .ow-qfact .ow-qfact-v.ow-sub { color: var(--color-foreground-muted-2); }
+  .ow-qfact .ow-mood { font-size: 12px; }
+  .ow-qcard-profile .ow-profile-main { font-size: 12px; line-height: 16px; }
+  .ow-qlist > .th-grid-empty { padding: var(--spacing-24) 0; text-align: center; }
+
+  /* Player drawer: a full-screen sheet, facts in pairs. */
+  .th-drawer.ow-drawer { width: 100vw; padding: 0; }
+  .ow-drawer .th-drawer-surface { border-radius: 0; box-shadow: none; }
+  .ow-drawer .th-drawer-head { padding: var(--spacing-16) var(--spacing-16) var(--spacing-12); }
+  .ow-drawer .th-drawer-head .th-action { padding: var(--spacing-12); margin: calc(-1 * var(--spacing-8)) calc(-1 * var(--spacing-8)) 0 0; }
+  .ow-drawer .th-drawer-body { padding: 0 var(--spacing-16) var(--spacing-24); }
+  .ow-drawer-name { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+  .ow-drawer .th-meta-cell { flex: 1 1 calc(50% - 1px); min-width: 0; min-height: 64px; gap: var(--spacing-8); padding: var(--spacing-12) var(--spacing-14); }
+  .ow-drawer .th-meta-cell.ow-meta-wide { flex-basis: 100%; }
+  .ow-drawer .th-meta-val > .txt { white-space: normal; overflow-wrap: anywhere; }
+  .ow-msg { max-width: 92%; }
+
+  /* Logs: forms full width, every grid stacks into label and value cards. */
+  .ow-blockform { flex-wrap: wrap; gap: var(--spacing-8); padding: 0 var(--spacing-16) var(--spacing-16); }
+  .ow-blockform .th-field,
+  .ow-blockform .th-field.ow-field-wide { max-width: none; flex: 1 1 200px; }
+  .ow-logs-block { padding: var(--spacing-24) var(--spacing-16) 0; }
+  .ow-stack.th-grid-scroll { overflow: visible; margin-inline: var(--spacing-16); }
+  .ow-logs-block .ow-stack.th-grid-scroll { margin-inline: 0; }
+  .ow-stack .th-grid { display: block; min-width: 0; }
+  .ow-stack .th-grid-headgroup { display: none; }
+  .ow-stack .th-grid-body { display: flex; flex-direction: column; gap: var(--spacing-8); padding-bottom: var(--spacing-24); }
+  .ow-stack .th-grid-row {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: var(--spacing-8) 0;
+    border-radius: var(--radius-16);
+    background: var(--row-bg);
+  }
+  .ow-stack .th-grid-row.is-link:hover > .th-grid-cell > div,
+  .ow-stack .th-grid-row:hover .th-grid-cell > div { background: transparent; }
+  .ow-stack .th-grid-row > .th-grid-cell,
+  .ow-stack .th-grid-row > .th-grid-cell:first-child {
+    position: static;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-12);
+    height: auto;
+    min-height: 30px;
+    padding: 0 var(--spacing-16);
+    background: transparent;
+  }
+  .ow-stack .th-grid-cell::before {
+    content: attr(data-label);
+    flex: 0 0 92px;
+    color: var(--color-foreground-muted-3);
+    font-size: 10px;
+    line-height: 14px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .ow-stack .th-grid-cell[data-label='']::before { display: none; }
+  .ow-stack .th-grid-cell[data-label='']:has(.th-grid-cell-inner:empty) { display: none; }
+  .ow-stack .th-grid-cell > div,
+  .ow-stack .th-grid-row > .th-grid-cell:first-child > div,
+  .ow-stack .th-grid-row > .th-grid-cell:last-child > div {
+    flex: 1;
+    min-width: 0;
+    height: auto;
+    border-radius: 0;
+    background: transparent;
+  }
+  .ow-stack .th-grid-cell .th-grid-cell-inner,
+  .ow-stack .th-grid-row > .th-grid-cell:first-child .th-grid-cell-inner {
+    flex-wrap: wrap;
+    row-gap: var(--spacing-6);
+    padding: var(--spacing-4) 0;
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
+  }
+  .ow-stack .ow-clip { white-space: normal; overflow: visible; }
+  .ow-stack .ow-inline-badge { margin-left: 0; }
+  .ow-stack .ow-nums { text-align: left; }
+  .ow-stack .th-grid-body > .th-grid-empty { padding: var(--spacing-24) 0; text-align: center; }
+}

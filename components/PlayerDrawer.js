@@ -45,8 +45,9 @@ export default function PlayerDrawer({ row, onClose }) {
   // app opens ready for one paste into its search.
   const openEntergram = async () => { await copyTitle(); window.open('https://app.entergram.com/', '_blank', 'noreferrer'); };
 
+  // A long value takes a full row where the facts pair up on a phone.
   const fact = (k, v, cls = '') => (
-    <div className="th-meta-cell" key={k}>
+    <div className={`th-meta-cell${cls.includes('ow-wrap') ? ' ow-meta-wide' : ''}`} key={k}>
       <span className="th-meta-key typ-label-xsmall">{k}</span>
       <span className={`th-meta-val typ-label-medium ${cls}`}><span className="txt">{v}</span></span>
     </div>
