@@ -181,7 +181,7 @@ export default function Queue() {
   // anything is ticked, in place of a row of controls each reporting theirs.
   const toolbar = (
     <>
-      <div className="th-subtabs th-subtabs-section ow-tabs">
+      <div className="th-subtabs th-subtabs-section ow-tabs ow-tabs-grid">
         {TABS.map((t) => (
           <button type="button" key={t.key} className={`th-pill focusable${tab === t.key ? ' th-pill-selected' : ''}`} onClick={() => setTab(t.key)} aria-pressed={tab === t.key}>
             <span className="th-pill-label typ-label-medium">{t.label} <span className="ow-nums">{tabCounts[t.key] ?? 0}</span></span>

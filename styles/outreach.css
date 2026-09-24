@@ -414,17 +414,27 @@
   }
   .ow-mnav-email { color: var(--color-foreground-muted-1); overflow-wrap: anywhere; }
 
-  /* Toolbar: tabs as a strip that scrolls to the screen edge, then the search
-     with its pills on one line. */
+  /* Toolbar: every tab on screen, wrapping rather than scrolling, so none sits
+     past the edge. The queue's four take a two by two grid; the logs' seven
+     wrap as a row. Then the search, then its pills. */
   .th-toolbar { padding-bottom: var(--spacing-16); }
   .th-toolbar > .ow-tabs {
     flex: 1 0 100%;
+    flex-wrap: wrap;
     max-width: none;
-    margin-inline: calc(-1 * var(--spacing-16));
-    padding: var(--spacing-4) var(--spacing-16) var(--spacing-4) var(--spacing-4);
+    overflow: visible;
+    margin-inline: calc(-1 * var(--spacing-12)) 0;
+    padding: var(--spacing-4) 0;
     gap: var(--spacing-4);
   }
   .th-toolbar > .ow-tabs .th-pill { padding-inline: var(--spacing-12); }
+  .th-toolbar > .ow-tabs.ow-tabs-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-inline: 0;
+  }
+  .ow-tabs-grid .th-pill { min-width: 0; }
+  .ow-tabs-grid .th-pill-label { overflow: hidden; text-overflow: ellipsis; }
   .th-toolbar > .ow-tools { flex: 1 0 100%; flex-wrap: wrap; gap: var(--spacing-8); }
   .ow-tools .th-field-search { width: auto; flex: 1 0 100%; min-width: 0; max-width: none; }
   .ow-tools .th-pill { flex: 1 1 0; padding-inline: var(--spacing-14); }
